@@ -101,10 +101,21 @@ export default function App() {
         } else if (key === config.hotkeys.toggle_click_through) {
           const newGhostMode = !config.ghost_mode;
           try {
+            const win = getCurrentWindow();
             await invoke("set_click_through", { enabled: newGhostMode });
+            
+            if (newGhostMode) {
+              // Ghost ON -> Invisible + Click-through
+              await win.setOpacity(0.0);
+            } else {
+              // Ghost OFF -> Restore opacity from config
+              const latestConfig: any = await invoke("get_config");
+              const targetOpacity = latestConfig?.appearance?.opacity ?? 1.0;
+              await win.setOpacity(targetOpacity);
+            }
+
             const updatedConfig = { ...config, ghost_mode: newGhostMode };
             await invoke("save_config", { config: updatedConfig });
-            toast(newGhostMode ? "Ghost Mode: ON" : "Ghost Mode: OFF");
           } catch (e) {
             console.error("Failed toggling click-through", e);
           }
