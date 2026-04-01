@@ -1,3 +1,4 @@
+pub mod capture;
 pub mod ghost;
 pub mod hotkeys;
 pub mod window;
@@ -81,7 +82,10 @@ pub fn run() {
             nudge_window,
             save_position,
             restore_position,
-            crate::ghost::set_ghost_mode
+            crate::ghost::set_ghost_mode,
+            crate::capture::capture_full,
+            crate::capture::capture_region,
+            crate::capture::ocr_region
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
