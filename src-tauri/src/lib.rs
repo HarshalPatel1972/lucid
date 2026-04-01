@@ -41,6 +41,17 @@ fn get_config(state: tauri::State<'_, AppState>) -> Result<config::Config, Strin
 #[tauri::command]
 fn save_config(config: config::Config, state: tauri::State<'_, AppState>, app: tauri::AppHandle) -> Result<(), String> {
     *state.config.lock().unwrap() = config.clone();
+    
+    // Reconstruct AiRouter with updated API keys
+    use std::sync::Arc;
+    let providers: Vec<Arc<dyn ai::AiProvider>> = vec![
+        Arc::new(ai::groq::GroqProvider::new(config.api_keys.groq.clone().unwrap_or_default())),
+        Arc::new(ai::gemini::GeminiProvider::new(config.api_keys.gemini.clone().unwrap_or_default())),
+        Arc::new(ai::claude::ClaudeProvider::new(config.api_keys.claude.clone().unwrap_or_default())),
+        Arc::new(ai::ollama::OllamaProvider::new(config.ollama_model.clone())),
+    ];
+    *state.router.lock().unwrap() = ai::AiRouter::new(providers);
+
     let _ = hotkeys::register_dynamic(&app, &config.hotkeys);
     
     if let Ok(dir) = app.path().app_data_dir() {
