@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 
 interface CaptureResultModalProps {
@@ -60,7 +60,7 @@ export function SnipOverlay({ onCapture, onCancel }: SnipOverlayProps) {
   const [captureData, setCaptureData] = useState<string | null>(null);
 
   useEffect(() => {
-    const handleKeyDown = (e: window.KeyboardEvent) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onCancel();
     };
     window.addEventListener('keydown', handleKeyDown);
