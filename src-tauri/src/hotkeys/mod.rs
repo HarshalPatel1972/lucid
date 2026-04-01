@@ -44,19 +44,26 @@ pub fn register_dynamic(app_handle: &tauri::AppHandle, config: &crate::config::H
     
     let parsed_shortcuts: Vec<Shortcut> = shortcuts_to_register
         .into_iter()
-        .filter(|s| !s.is_empty() && !is_reserved(s))
+        .filter(|s| !s.is_empty())
         .filter_map(|s| Shortcut::from_str(&s).ok())
         .collect();
 
+    // Use a clean slate for shortcuts
     let _ = app_handle.global_shortcut().unregister_all();
     
+    // Register the shortcuts and use a single callback
     app_handle.global_shortcut().on_shortcuts(parsed_shortcuts, move |app, shortcut, event| {
         if event.state == ShortcutState::Pressed {
             let state = app.state::<AppState>();
             let cfg = state.config.lock().unwrap().hotkeys.clone();
             
+            // Normalize for comparison
+            let shortcut_str = shortcut.to_string();
             let matches_shortcut = |cfg_str: &str| -> bool {
-                Shortcut::from_str(cfg_str).ok().map(|s| s == *shortcut).unwrap_or(false)
+                if let Ok(other) = Shortcut::from_str(cfg_str) {
+                    return other == *shortcut;
+                }
+                false
             };
 
             if matches_shortcut(&cfg.toggle_visibility) {
@@ -76,92 +83,65 @@ pub fn register_dynamic(app_handle: &tauri::AppHandle, config: &crate::config::H
                 let _ = app.emit("hotkey", "capture_full");
             } else if matches_shortcut(&cfg.new_session) {
                 let _ = app.emit("hotkey", "new_session");
-            } else if matches_shortcut("Ctrl+Shift+Up") {
+            } else {
+                // Check for movement and resize hotkeys
                 if let Some(window) = app.get_webview_window("main") {
-                    if let Ok(pos) = window.outer_position() {
-                        let _ = window.set_position(tauri::PhysicalPosition::new(pos.x, pos.y - 20));
-                    }
-                }
-            } else if matches_shortcut("Ctrl+Shift+Down") {
-                if let Some(window) = app.get_webview_window("main") {
-                    if let Ok(pos) = window.outer_position() {
-                        let _ = window.set_position(tauri::PhysicalPosition::new(pos.x, pos.y + 20));
-                    }
-                }
-            } else if matches_shortcut("Ctrl+Shift+Left") {
-                if let Some(window) = app.get_webview_window("main") {
-                    if let Ok(pos) = window.outer_position() {
-                        let _ = window.set_position(tauri::PhysicalPosition::new(pos.x - 20, pos.y));
-                    }
-                }
-            } else if matches_shortcut("Ctrl+Shift+Right") {
-                if let Some(window) = app.get_webview_window("main") {
-                    if let Ok(pos) = window.outer_position() {
-                        let _ = window.set_position(tauri::PhysicalPosition::new(pos.x + 20, pos.y));
-                    }
-                }
-            } else if matches_shortcut("Ctrl+Alt+Up") {
-                if let Some(window) = app.get_webview_window("main") {
-                    if let (Ok(_), Ok(state)) = (window.outer_size(), app.state::<AppState>().config.lock()) {
-                        let inc = state.appearance.resize_increment as i32;
-                        println!("Growing Top edge by {}px", inc);
-                        let _ = crate::window::resize_window(&window.as_ref().window(), 0, -inc, 0, inc);
-                    }
-                }
-            } else if matches_shortcut("Ctrl+Alt+Down") {
-                if let Some(window) = app.get_webview_window("main") {
-                    if let (Ok(_), Ok(state)) = (window.outer_size(), app.state::<AppState>().config.lock()) {
-                        let inc = state.appearance.resize_increment as i32;
-                        println!("Growing Bottom edge by {}px", inc);
-                        let _ = crate::window::resize_window(&window.as_ref().window(), 0, 0, 0, inc);
-                    }
-                }
-            } else if matches_shortcut("Ctrl+Alt+Left") {
-                if let Some(window) = app.get_webview_window("main") {
-                    if let (Ok(_), Ok(state)) = (window.outer_size(), app.state::<AppState>().config.lock()) {
-                        let inc = state.appearance.resize_increment as i32;
-                        println!("Growing Left edge by {}px", inc);
-                        let _ = crate::window::resize_window(&window.as_ref().window(), -inc, 0, inc, 0);
-                    }
-                }
-            } else if matches_shortcut("Ctrl+Alt+Right") {
-                if let Some(window) = app.get_webview_window("main") {
-                    if let (Ok(_), Ok(state)) = (window.outer_size(), app.state::<AppState>().config.lock()) {
-                        let inc = state.appearance.resize_increment as i32;
-                        println!("Growing Right edge by {}px", inc);
-                        let _ = crate::window::resize_window(&window.as_ref().window(), 0, 0, inc, 0);
-                    }
-                }
-            } else if matches_shortcut("Ctrl+Alt+Shift+Up") {
-                if let Some(window) = app.get_webview_window("main") {
-                    if let (Ok(_), Ok(state)) = (window.outer_size(), app.state::<AppState>().config.lock()) {
-                        let inc = state.appearance.resize_increment as i32;
-                        println!("Shrinking Top edge by {}px", inc);
-                        let _ = crate::window::resize_window(&window.as_ref().window(), 0, inc, 0, -inc);
-                    }
-                }
-            } else if matches_shortcut("Ctrl+Alt+Shift+Down") {
-                if let Some(window) = app.get_webview_window("main") {
-                    if let (Ok(_), Ok(state)) = (window.outer_size(), app.state::<AppState>().config.lock()) {
-                        let inc = state.appearance.resize_increment as i32;
-                        println!("Shrinking Bottom edge by {}px", inc);
-                        let _ = crate::window::resize_window(&window.as_ref().window(), 0, 0, 0, -inc);
-                    }
-                }
-            } else if matches_shortcut("Ctrl+Alt+Shift+Left") {
-                if let Some(window) = app.get_webview_window("main") {
-                    if let (Ok(_), Ok(state)) = (window.outer_size(), app.state::<AppState>().config.lock()) {
-                        let inc = state.appearance.resize_increment as i32;
-                        println!("Shrinking Left edge by {}px", inc);
-                        let _ = crate::window::resize_window(&window.as_ref().window(), inc, 0, -inc, 0);
-                    }
-                }
-            } else if matches_shortcut("Ctrl+Alt+Shift+Right") {
-                if let Some(window) = app.get_webview_window("main") {
-                    if let (Ok(_), Ok(state)) = (window.outer_size(), app.state::<AppState>().config.lock()) {
-                        let inc = state.appearance.resize_increment as i32;
-                        println!("Shrinking Right edge by {}px", inc);
-                        let _ = crate::window::resize_window(&window.as_ref().window(), 0, 0, -inc, 0);
+                    if matches_shortcut("Ctrl+Shift+Up") {
+                        if let Ok(pos) = window.outer_position() {
+                            let _ = window.set_position(tauri::PhysicalPosition::new(pos.x, pos.y - 40));
+                        }
+                    } else if matches_shortcut("Ctrl+Shift+Down") {
+                        if let Ok(pos) = window.outer_position() {
+                            let _ = window.set_position(tauri::PhysicalPosition::new(pos.x, pos.y + 40));
+                        }
+                    } else if matches_shortcut("Ctrl+Shift+Left") {
+                        if let Ok(pos) = window.outer_position() {
+                            let _ = window.set_position(tauri::PhysicalPosition::new(pos.x - 40, pos.y));
+                        }
+                    } else if matches_shortcut("Ctrl+Shift+Right") {
+                        if let Ok(pos) = window.outer_position() {
+                            let _ = window.set_position(tauri::PhysicalPosition::new(pos.x + 40, pos.y));
+                        }
+                    } else if matches_shortcut("Ctrl+Alt+Up") {
+                        if let (Ok(_), Ok(state)) = (window.outer_size(), app.state::<AppState>().config.lock()) {
+                            let inc = state.appearance.resize_increment as i32;
+                            let _ = crate::window::resize_window(&window.as_ref().window(), 0, -inc, 0, inc);
+                        }
+                    } else if matches_shortcut("Ctrl+Alt+Down") {
+                        if let (Ok(_), Ok(state)) = (window.outer_size(), app.state::<AppState>().config.lock()) {
+                            let inc = state.appearance.resize_increment as i32;
+                            let _ = crate::window::resize_window(&window.as_ref().window(), 0, 0, 0, inc);
+                        }
+                    } else if matches_shortcut("Ctrl+Alt+Left") {
+                        if let (Ok(_), Ok(state)) = (window.outer_size(), app.state::<AppState>().config.lock()) {
+                            let inc = state.appearance.resize_increment as i32;
+                            let _ = crate::window::resize_window(&window.as_ref().window(), -inc, 0, inc, 0);
+                        }
+                    } else if matches_shortcut("Ctrl+Alt+Right") {
+                        if let (Ok(_), Ok(state)) = (window.outer_size(), app.state::<AppState>().config.lock()) {
+                            let inc = state.appearance.resize_increment as i32;
+                            let _ = crate::window::resize_window(&window.as_ref().window(), 0, 0, inc, 0);
+                        }
+                    } else if matches_shortcut("Ctrl+Alt+Shift+Up") {
+                        if let (Ok(_), Ok(state)) = (window.outer_size(), app.state::<AppState>().config.lock()) {
+                            let inc = state.appearance.resize_increment as i32;
+                            let _ = crate::window::resize_window(&window.as_ref().window(), 0, inc, 0, -inc);
+                        }
+                    } else if matches_shortcut("Ctrl+Alt+Shift+Down") {
+                        if let (Ok(_), Ok(state)) = (window.outer_size(), app.state::<AppState>().config.lock()) {
+                            let inc = state.appearance.resize_increment as i32;
+                            let _ = crate::window::resize_window(&window.as_ref().window(), 0, 0, 0, -inc);
+                        }
+                    } else if matches_shortcut("Ctrl+Alt+Shift+Left") {
+                        if let (Ok(_), Ok(state)) = (window.outer_size(), app.state::<AppState>().config.lock()) {
+                            let inc = state.appearance.resize_increment as i32;
+                            let _ = crate::window::resize_window(&window.as_ref().window(), inc, 0, -inc, 0);
+                        }
+                    } else if matches_shortcut("Ctrl+Alt+Shift+Right") {
+                        if let (Ok(_), Ok(state)) = (window.outer_size(), app.state::<AppState>().config.lock()) {
+                            let inc = state.appearance.resize_increment as i32;
+                            let _ = crate::window::resize_window(&window.as_ref().window(), 0, 0, -inc, 0);
+                        }
                     }
                 }
             }

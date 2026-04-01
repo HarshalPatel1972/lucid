@@ -13,7 +13,8 @@
   "app": {
     "windows": [
       {
-        "title": "",
+        "label": "main",
+        "title": "Lucid",
         "width": 420,
         "height": 700,
         "resizable": true,
