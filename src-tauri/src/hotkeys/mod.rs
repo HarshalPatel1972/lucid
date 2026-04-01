@@ -28,6 +28,7 @@ pub fn register_dynamic(app_handle: &tauri::AppHandle, config: &crate::config::H
         config.capture_full.clone(),
         config.focus_chat.clone(),
         config.new_session.clone(),
+        "Ctrl+Shift+C".to_string(), // Force-add the new Ghost Mode key
         "Ctrl+Shift+Up".to_string(),
         "Ctrl+Shift+Down".to_string(),
         "Ctrl+Shift+Left".to_string(),
@@ -106,6 +107,9 @@ pub fn register_dynamic(app_handle: &tauri::AppHandle, config: &crate::config::H
                                 let _ = window.set_position(tauri::PhysicalPosition::new(pos.x + 40, pos.y));
                             }
                         }
+                    }
+                    "Ctrl+Shift+C" => {
+                        let _ = app.emit("hotkey", "Ctrl+Shift+C");
                     }
                     _ => {}
                 }

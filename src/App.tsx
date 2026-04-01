@@ -98,7 +98,7 @@ export default function App() {
           } catch (e) {
             console.error("Full capture failed", e);
           }
-        } else if (key === config.hotkeys.toggle_click_through) {
+        } else if (key === config.hotkeys.toggle_click_through || key === "Ctrl+Shift+C") {
           const newGhostMode = !config.ghost_mode;
           try {
             const win = getCurrentWindow();
