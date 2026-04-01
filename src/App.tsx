@@ -55,9 +55,9 @@ export default function App() {
       const key = event.payload;
 
       if (key === "snip_region") {
-        // Force 100% opacity for clear snip
-        document.documentElement.style.setProperty("--app-opacity", "1.0");
-        try { await invoke("set_opacity", { opacity: 1.0 }); } catch (e) {}
+        // Force 0% opacity for clear snip (see everything behind)
+        document.documentElement.style.setProperty("--app-opacity", "0.0");
+        try { await invoke("set_opacity", { opacity: 0.0 }); } catch (e) {}
         setIsSnipping(true);
       } else if (key === "focus_chat") {
         setView("chat");
@@ -75,9 +75,18 @@ export default function App() {
         });
       } else if (key === "capture_full") {
         try {
+          // Hide for full capture too
+          document.documentElement.style.setProperty("--app-opacity", "0.0");
+          try { await invoke("set_opacity", { opacity: 0.0 }); } catch (e) {}
+          // Give extra time for window to vanish
+          await new Promise(r => setTimeout(r, 200));
+
           const base64 = await invoke("capture_full");
           setPendingSnip({ type: "vision", data: base64 as string });
           setView("chat");
+
+          // Restore from config
+          await restoreOpacity();
         } catch (e) {
           console.error("Full capture failed", e);
         }
