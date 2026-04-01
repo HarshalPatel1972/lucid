@@ -55,7 +55,6 @@ export default function App() {
       const key = event.payload;
 
       if (key === "snip_region") {
-        // Snipping focuses on CSS transparency to avoid losing window focus
         setIsSnipping(true);
       } else if (key === "focus_chat") {
         setView("chat");
@@ -73,7 +72,6 @@ export default function App() {
         });
       } else if (key === "capture_full") {
         try {
-          // Hide for full capture
           document.documentElement.style.setProperty("--app-opacity", "0.0");
           try { await invoke("set_opacity", { opacity: 0.0 }); } catch (e) {}
           await new Promise(r => setTimeout(r, 150));
@@ -94,6 +92,16 @@ export default function App() {
             invoke("set_click_through", { enabled: newGhostMode }),
             invoke("save_config", { config: updatedConfig }),
           ]);
+          
+          if (newGhostMode) {
+            // Ghost ON -> Invisible + Click-through
+            document.documentElement.style.setProperty("--app-opacity", "0.0");
+            try { await invoke("set_opacity", { opacity: 0.0 }); } catch (e) {}
+          } else {
+            // Ghost OFF -> Restore opacity from config
+            await restoreOpacity();
+          }
+
           configRef.current = updatedConfig;
           setAppConfig(updatedConfig);
           toast(newGhostMode ? "Ghost mode enabled" : "Ghost mode disabled", {

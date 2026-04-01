@@ -85,7 +85,7 @@ impl Default for Config {
             session_prompt: None,
             hotkeys: HotkeyConfig {
                 toggle_visibility: "Ctrl+Shift+Space".to_string(),
-                toggle_click_through: "Ctrl+Shift+T".to_string(),
+                toggle_click_through: "Ctrl+Shift+C".to_string(),
                 snip_region: "Ctrl+Shift+S".to_string(),
                 capture_full: "Ctrl+Shift+F".to_string(),
                 focus_chat: "Ctrl+Shift+A".to_string(),
