@@ -44,11 +44,14 @@ pub fn register_dynamic(app_handle: &tauri::AppHandle, config: &crate::config::H
     
     app_handle.global_shortcut().on_shortcuts(parsed_shortcuts, move |app, shortcut, event| {
         if event.state == ShortcutState::Pressed {
-            let s_str = shortcut.to_string();
             let state = app.state::<AppState>();
             let cfg = state.config.lock().unwrap().hotkeys.clone();
             
-            if s_str == cfg.toggle_visibility {
+            let matches_shortcut = |cfg_str: &str| -> bool {
+                Shortcut::from_str(cfg_str).ok().map(|s| s == *shortcut).unwrap_or(false)
+            };
+
+            if matches_shortcut(&cfg.toggle_visibility) {
                 if let Some(window) = app.get_webview_window("main") {
                     if window.is_visible().unwrap_or(false) {
                         let _ = window.hide();
@@ -57,11 +60,18 @@ pub fn register_dynamic(app_handle: &tauri::AppHandle, config: &crate::config::H
                         let _ = window.set_focus();
                     }
                 }
-            } else if s_str == cfg.toggle_click_through || s_str == cfg.snip_region || 
-                      s_str == cfg.capture_full || s_str == cfg.focus_chat || 
-                      s_str == cfg.new_session {
-                let _ = app.emit("hotkey", &s_str);
+            } else if matches_shortcut(&cfg.toggle_click_through) {
+                let _ = app.emit("hotkey", &cfg.toggle_click_through);
+            } else if matches_shortcut(&cfg.snip_region) {
+                let _ = app.emit("hotkey", &cfg.snip_region);
+            } else if matches_shortcut(&cfg.capture_full) {
+                let _ = app.emit("hotkey", &cfg.capture_full);
+            } else if matches_shortcut(&cfg.focus_chat) {
+                let _ = app.emit("hotkey", &cfg.focus_chat);
+            } else if matches_shortcut(&cfg.new_session) {
+                let _ = app.emit("hotkey", &cfg.new_session);
             } else {
+                let s_str = shortcut.to_string();
                 match s_str.as_str() {
                     "Ctrl+Shift+Up" => {
                         if let Some(window) = app.get_webview_window("main") {

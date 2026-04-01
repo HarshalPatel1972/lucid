@@ -142,12 +142,14 @@ export function SettingsPanel() {
             <h3 className='text-2xl font-semibold mb-6 flex items-center gap-2'>
               <Keyboard className='text-orange-500' /> Hotkeys
             </h3>
-            <p className="text-sm text-zinc-400 mb-4">Set your preferred global shortcuts. You must use valid Tauri hotkey modifiers like "CommandOrControl+Shift+C".</p>
-            
-            <InputField label='Focus Chat' value={config.hotkeys.focus_chat || ''} onChange={(v: string) => setConfig({...config, hotkeys: {...config.hotkeys, focus_chat: v}})} placeholder='e.g., CommandOrControl+Space' />
-            <InputField label='Snip Region' value={config.hotkeys.snip_region || ''} onChange={(v: string) => setConfig({...config, hotkeys: {...config.hotkeys, snip_region: v}})} placeholder='e.g., CommandOrControl+Shift+S' />
-            <InputField label='New Session' value={config.hotkeys.new_session || ''} onChange={(v: string) => setConfig({...config, hotkeys: {...config.hotkeys, new_session: v}})} placeholder='e.g., CommandOrControl+Shift+N' />
-            <InputField label='Capture Full Screen' value={config.hotkeys.capture_full || ''} onChange={(v: string) => setConfig({...config, hotkeys: {...config.hotkeys, capture_full: v}})} placeholder='e.g., CommandOrControl+Shift+F' />
+            <p className="text-sm text-zinc-400 mb-4">Click to record a new global shortcut.</p>
+
+            <HotkeyInput label='Toggle Visibility' value={config.hotkeys.toggle_visibility || ''} onChange={(v: string) => setConfig({...config, hotkeys: {...config.hotkeys, toggle_visibility: v}})} placeholder='e.g., CommandOrControl+Shift+Space' />
+            <HotkeyInput label='Toggle Ghost Mode (Click-Through)' value={config.hotkeys.toggle_click_through || ''} onChange={(v: string) => setConfig({...config, hotkeys: {...config.hotkeys, toggle_click_through: v}})} placeholder='e.g., CommandOrControl+Shift+T' />
+            <HotkeyInput label='Focus Chat' value={config.hotkeys.focus_chat || ''} onChange={(v: string) => setConfig({...config, hotkeys: {...config.hotkeys, focus_chat: v}})} placeholder='e.g., CommandOrControl+Shift+A' />
+            <HotkeyInput label='Snip Region' value={config.hotkeys.snip_region || ''} onChange={(v: string) => setConfig({...config, hotkeys: {...config.hotkeys, snip_region: v}})} placeholder='e.g., CommandOrControl+Shift+S' />
+            <HotkeyInput label='New Session' value={config.hotkeys.new_session || ''} onChange={(v: string) => setConfig({...config, hotkeys: {...config.hotkeys, new_session: v}})} placeholder='e.g., CommandOrControl+Shift+N' />
+            <HotkeyInput label='Capture Full Screen' value={config.hotkeys.capture_full || ''} onChange={(v: string) => setConfig({...config, hotkeys: {...config.hotkeys, capture_full: v}})} placeholder='e.g., CommandOrControl+Shift+F' />   
           </div>
         )}
 
@@ -201,6 +203,45 @@ function InputField({ label, value, onChange, type = 'text', placeholder = '' }:
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         className='bg-zinc-900 border border-zinc-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 rounded-lg px-4 py-2.5 text-zinc-100 outline-none transition-all'
+      />
+    </div>
+  );
+}
+function HotkeyInput({ label, value, onChange, placeholder }: any) {
+  const [recording, setRecording] = useState(false);
+
+  const handleKeyDown = (e: any) => {
+    e.preventDefault();
+    if (e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt' || e.key === 'Meta') {
+      return; 
+    }
+    
+    let keys = [];
+    if (e.ctrlKey || e.metaKey) keys.push('CommandOrControl');
+    if (e.altKey) keys.push('Alt');
+    if (e.shiftKey) keys.push('Shift');
+    
+    let key = e.key;
+    if (key === ' ') key = 'Space';
+    else if (key.length === 1) key = key.toUpperCase();
+    
+    keys.push(key);
+    onChange(keys.join('+'));
+    setRecording(false);
+  };
+
+  return (
+    <div className='flex flex-col gap-1.5'>
+      <label className='text-sm font-medium text-zinc-400'>{label}</label>
+      <input
+        type="text"
+        value={recording ? "Listening for keypress..." : value}
+        onFocus={() => setRecording(true)}
+        onBlur={() => setRecording(false)}
+        onKeyDown={recording ? handleKeyDown : undefined}
+        readOnly
+        placeholder={placeholder}
+        className={`bg-zinc-900 border ${recording ? 'border-orange-500 ring-1 ring-orange-500' : 'border-zinc-800'} rounded-lg px-4 py-2.5 text-zinc-100 outline-none transition-all cursor-pointer`}
       />
     </div>
   );
