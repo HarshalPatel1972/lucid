@@ -1,4 +1,5 @@
-mod window;
+pub mod ghost;
+pub mod window;
 
 use tauri::Manager;
 
@@ -72,8 +73,10 @@ pub fn run() {
             set_opacity,
             nudge_window,
             save_position,
-            restore_position
+            restore_position,
+            crate::ghost::set_ghost_mode
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
