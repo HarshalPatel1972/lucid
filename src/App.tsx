@@ -37,7 +37,7 @@ export default function App() {
           document.documentElement.className = config.appearance.theme;
         }
 
-        // Apply Appearance Opacity
+        // Apply Appearance Opacity (Startup Only)
         if (config.appearance && config.appearance.opacity !== undefined) {
           document.documentElement.style.setProperty(
             "--app-opacity",
@@ -70,23 +70,23 @@ export default function App() {
         const key = event.payload;
 
         if (key === config.hotkeys.snip_region) {
-          // Force 0.0 opacity for clear snip (see everything behind)
-          document.documentElement.style.setProperty("--app-opacity", "0.0");
-          try { await invoke("set_opacity", { opacity: 0.0 }); } catch (e) {}
+          // Starting snip: only make internal background transparent (CSS only)
+          // NEVER use set_opacity(0.0) on the whole window, it loses focus!
           setIsSnipping(true);
         } else if (key === config.hotkeys.focus_chat) {
           setView("chat");
+          const win = getCurrentWindow();
+          await win.setFocus();
         } else if (key === config.hotkeys.new_session) {
           setView("chat");
           setSessionKey((k) => k + 1);
         } else if (key === config.hotkeys.capture_full) {
           try {
-            // Hide for full capture too
-            document.documentElement.style.setProperty("--app-opacity", "0.0");
-            try { await invoke("set_opacity", { opacity: 0.0 }); } catch (e) {}
-            // Give extra time for window to vanish
-            await new Promise(r => setTimeout(r, 200));
-
+            // Full Capture requires a quick app hide
+            const win = getCurrentWindow();
+            await win.setOpacity(0.0);
+            await new Promise(r => setTimeout(r, 150));
+            
             const base64 = await invoke("capture_full", { displayIdx: 0 });
             setPendingSnip({ type: "vision", data: base64 as string });
             setView("chat");
@@ -94,9 +94,7 @@ export default function App() {
             // Restore from config
             const appConfig: any = await invoke("get_config");
             const targetOpacity = appConfig?.appearance?.opacity ?? 1.0;
-            document.documentElement.style.setProperty("--app-opacity", targetOpacity.toString());
-            try { await invoke("set_opacity", { opacity: targetOpacity }); } catch (e) {}
-
+            await win.setOpacity(targetOpacity);
           } catch (e) {
             console.error("Full capture failed", e);
           }
@@ -104,22 +102,9 @@ export default function App() {
           const newGhostMode = !config.ghost_mode;
           try {
             await invoke("set_click_through", { enabled: newGhostMode });
-            // Save config to persist
             const updatedConfig = { ...config, ghost_mode: newGhostMode };
             await invoke("save_config", { config: updatedConfig });
-            toast(
-              newGhostMode
-                ? "Ghost Mode: ON (Click-through enabled)"
-                : "Ghost Mode: OFF (Click-through disabled)",
-              {
-                icon: "👻",
-                style: {
-                  background: "#18181b",
-                  color: "#fff",
-                  border: "1px solid #27272a",
-                },
-              },
-            );
+            toast(newGhostMode ? "Ghost Mode: ON" : "Ghost Mode: OFF");
           } catch (e) {
             console.error("Failed toggling click-through", e);
           }
@@ -134,14 +119,16 @@ export default function App() {
     };
   }, []);
 
-  const opacityValue = appConfig?.appearance?.opacity ?? 1.0;
+  const currentOpacity = appConfig?.appearance?.opacity ?? 1.0;
   const fontFamilyValue = appConfig?.appearance?.font_family || "sans-serif";
 
   return (
     <div
-      className="flex flex-col h-screen w-screen overflow-hidden bg-zinc-950 text-zinc-100 rounded-lg transition-all duration-300"
+      id="app-root"
+      className="flex flex-col h-screen w-screen overflow-hidden text-zinc-100 transition-all duration-300"
       style={{
-        backgroundColor: `rgba(9, 9, 11, ${opacityValue})`,
+        // When snipping, make the background alpha 0 to see through, but keep window visible
+        backgroundColor: isSnipping ? "transparent" : `rgba(9, 9, 11, ${currentOpacity})`,
         fontFamily: fontFamilyValue,
       }}
     >
@@ -155,15 +142,15 @@ export default function App() {
           },
         }}
       />
-      {/* Titlebar */}
+      
+      {/* Titlebar: Hidden when snipping to show the screen below */}
       <div
-        className="h-8 flex-shrink-0 border-b flex justify-between items-center select-none"
-        style={{ borderColor: `rgba(39, 39, 42, ${opacityValue})` }}
+        className={`h-8 flex-shrink-0 border-b flex justify-between items-center select-none transition-opacity duration-200 ${isSnipping ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+        style={{ borderColor: `rgba(39, 39, 42, ${currentOpacity})` }}
       >
         <div
           data-tauri-drag-region
           className="flex items-center gap-2 px-4 h-full flex-1 cursor-grab"
-          style={{ WebkitAppRegion: "drag" } as any}
         >
           <div className="w-4 h-4 bg-blue-600 rounded flex items-center justify-center text-[10px] font-bold text-white pointer-events-none">
             L
@@ -172,42 +159,25 @@ export default function App() {
             Lucid
           </span>
         </div>
-        <div
-          className="flex h-full"
-          style={{ WebkitAppRegion: "no-drag" } as any}
-        >
+        <div className="flex h-full" style={{ WebkitAppRegion: "no-drag" } as any}>
           <button
-            className="w-11 h-full flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
-            onClick={async () => {
-              const win = getCurrentWindow();
-              await win.minimize();
-            }}
-            title="Minimize"
+            className="w-11 h-full flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-white"
+            onClick={async () => await getCurrentWindow().minimize()}
           >
             <Minus size={14} />
           </button>
           <button
-            className="w-11 h-full flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+            className="w-11 h-full flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-white"
             onClick={async () => {
-              const win = getCurrentWindow();
-              const isMax = await win.isMaximized();
-              if (isMax) {
-                await win.unmaximize();
-              } else {
-                await win.maximize();
-              }
+               const win = getCurrentWindow();
+               (await win.isMaximized()) ? await win.unmaximize() : await win.maximize();
             }}
-            title="Toggle Maximize"
           >
             <div className="w-3 h-3 border border-zinc-400 rounded-sm" />
           </button>
           <button
-            className="w-11 h-full flex items-center justify-center text-zinc-400 hover:bg-red-600 hover:text-white transition-colors cursor-pointer"
-            onClick={async () => {
-              const win = getCurrentWindow();
-              await win.close();
-            }}
-            title="Close"
+            className="w-11 h-full flex items-center justify-center text-zinc-400 hover:bg-red-600 hover:text-white"
+            onClick={async () => await getCurrentWindow().close()}
           >
             <X size={14} />
           </button>
@@ -215,113 +185,79 @@ export default function App() {
       </div>
 
       <div className="flex flex-1 overflow-hidden relative">
+        {/* Main UI Body: Becomes invisible when snipping */}
         <div className={`flex flex-1 overflow-hidden transition-opacity duration-200 ${isSnipping ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
-          {/* Main Navigation Sidebar */}
           <div className="w-14 flex flex-col items-center py-4 border-r border-zinc-800 bg-zinc-900 gap-6 shrink-0 z-10">
             <button
-              className={`p-2.5 rounded-xl transition-all duration-200 relative z-20 ${view === "chat" ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"}`}
-              onClick={() => setView("chat")}
-              title="Chat (Session)"
+               className={`p-2.5 rounded-xl ${view === "chat" ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"}`}
+               onClick={() => setView("chat")}
             >
               <MessageSquare size={22} />
             </button>
             <button
-              className={`p-2.5 rounded-xl transition-all duration-200 relative z-20 ${view === "settings" ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"}`}
-              onClick={() => setView("settings")}
-              title="Settings"
+               className={`p-2.5 rounded-xl ${view === "settings" ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"}`}
+               onClick={() => setView("settings")}
             >
               <Settings size={22} />
             </button>
-
             <div className="flex-1" />
-
-            {/* Vertical Opacity Slider */}
+            
+            {/* Opacity Slider */}
             <div className="flex flex-col items-center gap-3 pb-4">
-              <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-tighter [writing-mode:vertical-lr] rotate-180 select-none opacity-50">Opacity</span>
+              <span className="text-[9px] font-bold text-zinc-500 uppercase [writing-mode:vertical-lr] rotate-180 opacity-50">Opacity</span>
               <div className="h-40 w-5 bg-zinc-800/50 rounded-2xl relative flex items-center justify-center group overflow-hidden border border-zinc-700/30">
                 <input
                   type="range"
                   min="0.1"
                   max="1.0"
                   step="0.01"
-                  value={opacityValue}
+                  value={currentOpacity}
                   onChange={async (e) => {
                     const val = parseFloat(e.target.value);
                     if (!appConfig) return;
                     const newConfig = { ...appConfig, appearance: { ...appConfig.appearance, opacity: val } };
                     setAppConfig(newConfig);
-                    
-                    // Live Updates
-                    document.documentElement.style.setProperty("--app-opacity", val.toString());
                     try {
                       await invoke("set_opacity", { opacity: val });
                       await invoke("save_config", { config: newConfig });
                     } catch (err) {}
                   }}
                   className="absolute inset-0 cursor-pointer appearance-none bg-transparent -rotate-90 w-40 z-30"
-                  style={{ 
-                    height: '20px',
-                    marginTop: '10px'
-                  }}
+                  style={{ height: '20px', marginTop: '10px' }}
                 />
                 <div 
-                  className="absolute bottom-0 left-0 right-0 bg-blue-500/80 transition-all duration-75 pointer-events-none rounded-b-xl"
-                  style={{ height: `${opacityValue * 100}%`, filter: 'blur(0.5px)' }}
+                   className="absolute bottom-0 left-0 right-0 bg-blue-500/80 rounded-b-xl"
+                   style={{ height: `${currentOpacity * 100}%` }}
                 />
-                <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-blue-400/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
             </div>
           </div>
 
-          {/* Content Area */}
           <div className="flex-1 relative overflow-hidden">
-            <div className={`absolute inset-0 transition-opacity duration-300 ${view === "chat" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"}`}>
-              <ChatPanel
-                sessionKey={sessionKey}
-                pendingSnip={pendingSnip}
-                onSnipConsumed={() => setPendingSnip(null)}
-              />
+            <div className={`${view === "chat" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"} absolute inset-0 transition-opacity duration-300`}>
+              <ChatPanel sessionKey={sessionKey} pendingSnip={pendingSnip} onSnipConsumed={() => setPendingSnip(null)} />
             </div>
-            <div className={`absolute inset-0 transition-opacity duration-300 ${view === "settings" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"}`}>
+            <div className={`${view === "settings" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"} absolute inset-0 transition-opacity duration-300`}>
               <SettingsPanel
                 onConfigChanged={async () => {
-                  const config: any = await invoke("get_config");
-                  setAppConfig(config);
-                  if (config?.appearance?.theme) {
-                    document.documentElement.setAttribute("data-theme", config.appearance.theme);
-                    document.documentElement.className = config.appearance.theme;
-                  }
+                   const config: any = await invoke("get_config");
+                   setAppConfig(config);
                 }}
               />
             </div>
           </div>
         </div>
 
-        {/* Global Overlays */}
+        {/* Snip Overlay: Stays visible while everything else hides */}
         {isSnipping && (
           <SnipOverlay
             onCapture={async (res) => {
               setIsSnipping(false);
               setPendingSnip(res);
               setView("chat");
-              // Restore opacity from config
-              const latestConfig: any = await invoke("get_config");
-              const targetOpacity = latestConfig?.appearance?.opacity ?? 1.0;
-              document.documentElement.style.setProperty("--app-opacity", targetOpacity.toString());
-              try {
-                await invoke("set_opacity", { opacity: targetOpacity });
-              } catch (e) {}
+              toast.success("Text captured to clipboard!");
             }}
-            onCancel={async () => {
-              setIsSnipping(false);
-              // Restore opacity from config
-              const latestConfig: any = await invoke("get_config");
-              const targetOpacity = latestConfig?.appearance?.opacity ?? 1.0;
-              document.documentElement.style.setProperty("--app-opacity", targetOpacity.toString());
-              try {
-                await invoke("set_opacity", { opacity: targetOpacity });
-              } catch (e) {}
-            }}
+            onCancel={() => setIsSnipping(false)}
           />
         )}
       </div>
