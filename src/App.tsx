@@ -98,27 +98,18 @@ export default function App() {
           } catch (e) {
             console.error("Full capture failed", e);
           }
-        } else if (key === config.hotkeys.toggle_click_through || key === "Ctrl+Shift+C") {
-          const newGhostMode = !config.ghost_mode;
-          try {
-            const win = getCurrentWindow();
-            await invoke("set_click_through", { enabled: newGhostMode });
-            
-            if (newGhostMode) {
-              // Ghost ON -> Invisible + Click-through
-              await win.setOpacity(0.0);
-            } else {
-              // Ghost OFF -> Restore opacity from config
-              const latestConfig: any = await invoke("get_config");
-              const targetOpacity = latestConfig?.appearance?.opacity ?? 1.0;
-              await win.setOpacity(targetOpacity);
-            }
-
-            const updatedConfig = { ...config, ghost_mode: newGhostMode };
-            await invoke("save_config", { config: updatedConfig });
-          } catch (e) {
-            console.error("Failed toggling click-through", e);
-          }
+        } else if (key === config.hotkeys.toggle_click_through || key === "Ctrl+Shift+C" || key === "Control+Shift+C" || key === "Alt+G") {
+          const freshConfig: any = await invoke("get_config");
+          setAppConfig(freshConfig);
+          const isEnabled = freshConfig.ghost_mode;
+          
+          toast(
+             isEnabled ? "Ghost Mode: ACTIVE (Invisible + Click-through)" : "Ghost Mode: OFF (Restored)",
+             { 
+               icon: isEnabled ? "👻" : "👁️",
+               style: { background: "#18181b", color: "#fff" }
+             }
+          );
         }
       } catch (err) {
         console.error("Failed handling hotkey", err);
