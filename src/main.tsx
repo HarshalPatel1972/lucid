@@ -4,8 +4,10 @@ import App from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import "./styles/app.css";
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(     
+ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <ErrorBoundary>
       <App />
     </ErrorBoundary>
+  </React.StrictMode>
+);
