@@ -10,6 +10,7 @@ export default function App() {
   const [isSnipping, setIsSnipping] = useState(false);
   const [view, setView] = useState<'chat' | 'settings'>('chat');
   const [sessionKey, setSessionKey] = useState(0);
+  const [pendingSnip, setPendingSnip] = useState<{type: 'ocr'|'vision', data: string} | null>(null);
 
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
@@ -50,7 +51,7 @@ export default function App() {
           onCapture={(res) => {
             console.log("Captured:", res.type);
             setIsSnipping(false);
-            // Optionally auto-switch to chat when an image is captured to drop it in
+            setPendingSnip(res);
             setView("chat");
           }}
           onCancel={() => setIsSnipping(false)}
@@ -77,7 +78,7 @@ export default function App() {
 
       {/* Content Area */}
       <div className="flex-1 relative">
-        {view === 'chat' && <ChatPanel sessionKey={sessionKey} />}
+        {view === 'chat' && <ChatPanel sessionKey={sessionKey} pendingSnip={pendingSnip} onSnipConsumed={() => setPendingSnip(null)} />}
         {view === 'settings' && <SettingsPanel />}
       </div>
     </div>

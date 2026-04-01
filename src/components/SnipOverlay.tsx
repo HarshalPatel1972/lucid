@@ -57,7 +57,7 @@ export function SnipOverlay({ onCapture, onCancel }: SnipOverlayProps) {
   const [startY, setStartY] = useState(0);
   const [currentX, setCurrentX] = useState(0);
   const [currentY, setCurrentY] = useState(0);
-  const [captureData, setCaptureData] = useState<string | null>(null);
+  const [captureData, setCaptureData] = useState<{b64: string, rect: {x:number, y:number, width:number, height:number}} | null>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -97,7 +97,7 @@ export function SnipOverlay({ onCapture, onCancel }: SnipOverlayProps) {
 
     try {
       const b64 = await invoke<string>('capture_region', { x, y, width, height });
-      setCaptureData(b64);
+      setCaptureData({ b64, rect: { x, y, width, height } });
     } catch (err) {
       console.error("Capture failed:", err);
       onCancel();
@@ -107,8 +107,20 @@ export function SnipOverlay({ onCapture, onCancel }: SnipOverlayProps) {
   if (captureData) {
     return (
       <CaptureResultModal
-        imageData={captureData}
-        onChoice={(type) => onCapture({ type, data: captureData })}
+        imageData={captureData.b64}
+        onChoice={async (type) => {
+          if (type === 'ocr') {
+             try {
+               const text = await invoke<string>('ocr_region', captureData.rect);
+               onCapture({ type: 'ocr', data: text });
+             } catch(err) {
+               console.error(err);
+               onCapture({ type: 'ocr', data: '[OCR Failed]' });
+             }
+          } else {
+             onCapture({ type: 'vision', data: captureData.b64 });
+          }
+        }}
         onCancel={onCancel}
       />
     );

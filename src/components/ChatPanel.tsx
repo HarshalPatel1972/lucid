@@ -9,7 +9,13 @@ export interface Message {
   content: MessageContent;
 }
 
-export function ChatPanel({ sessionKey }: { sessionKey: number }) {
+export interface ChatPanelProps { 
+  sessionKey: number;
+  pendingSnip?: { type: 'ocr' | 'vision'; data: string } | null;
+  onSnipConsumed?: () => void;
+}
+
+export function ChatPanel({ sessionKey, pendingSnip, onSnipConsumed }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -24,11 +30,25 @@ export function ChatPanel({ sessionKey }: { sessionKey: number }) {
   }, [messages, loading]);
 
   const handleSend = async () => {
-    if (!input.trim() || loading) return;
-    const msg: Message = { role: 'user', content: input };
+    if (!input.trim() && !pendingSnip) return;
+    if (loading) return;
+
+    let content: MessageContent = input;
+    
+    if (pendingSnip) {
+      if (pendingSnip.type === 'vision') {
+        content = { text: input, image_base64: pendingSnip.data };
+      } else {
+        // ocr
+        content = `[OCR Result:]\n${pendingSnip.data}\n\n[User Input:]\n${input}`;
+      }
+    }
+
+    const msg: Message = { role: 'user', content };
     const newMsgs = [...messages, msg];
     setMessages(newMsgs);
     setInput('');
+    if (onSnipConsumed) onSnipConsumed();
     setLoading(true);
 
     try {
@@ -96,6 +116,31 @@ export function ChatPanel({ sessionKey }: { sessionKey: number }) {
 
       {/* Input */}
       <div className='p-4 border-t border-zinc-800 bg-zinc-920'>
+        {pendingSnip && (
+          <div className="max-w-4xl mx-auto mb-2 flex items-center justify-between p-2 rounded-xl bg-blue-900/20 border border-blue-800/50">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded flex-shrink-0 border border-zinc-700 bg-black flex items-center justify-center overflow-hidden">
+                {pendingSnip.type === 'vision' && (
+                  <img src={`data:image/png;base64,${pendingSnip.data}`} alt="Snip" className="w-full h-full object-cover" />
+                )}
+                {pendingSnip.type === 'ocr' && (
+                  <span className="text-[10px] font-bold text-zinc-400">TXT</span>
+                )}
+              </div>
+              <div className="text-sm">
+                <p className="font-semibold text-blue-200">Attached Snip ({pendingSnip.type})</p>
+                <p className="text-xs text-blue-400">Ready to send</p>
+              </div>
+            </div>
+            <button 
+              onClick={onSnipConsumed}
+              className="text-zinc-400 hover:text-white p-2"
+              title="Remove attachment"
+            >
+              &times;
+            </button>
+          </div>
+        )}
         <div className='flex gap-2 max-w-4xl mx-auto'>
           <textarea
             value={input}
