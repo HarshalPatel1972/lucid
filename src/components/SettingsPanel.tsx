@@ -224,15 +224,24 @@ export function SettingsPanel({ onConfigChanged }: SettingsPanelProps) {
                 max="1.0"
                 step="0.05"
                 value={config.appearance.opacity || 1.0}
-                onChange={(e) =>
+                onChange={async (e) => {
+                  const newOpacity = parseFloat(e.target.value);
                   setConfig({
                     ...config,
                     appearance: {
                       ...config.appearance,
-                      opacity: parseFloat(e.target.value),
+                      opacity: newOpacity,
                     },
-                  })
-                }
+                  });
+                  // Live reload
+                  document.documentElement.style.setProperty(
+                    "--app-opacity",
+                    newOpacity.toString(),
+                  );
+                  try {
+                    await invoke("set_opacity", { opacity: newOpacity });
+                  } catch (e) {}
+                }}
                 className="w-full accent-blue-500"
               />
             </div>
