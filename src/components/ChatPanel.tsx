@@ -1,0 +1,124 @@
+import { useState, useRef, useEffect } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { Send, Bot, User, Loader2 } from 'lucide-react';
+
+export type MessageContent = string | { text: string; image_base64: string };
+
+export interface Message {
+  role: 'user' | 'assistant' | 'system';
+  content: MessageContent;
+}
+
+export function ChatPanel({ sessionKey }: { sessionKey: number }) {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const endRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMessages([]);
+  }, [sessionKey]);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, loading]);
+
+  const handleSend = async () => {
+    if (!input.trim() || loading) return;
+    const msg: Message = { role: 'user', content: input };
+    const newMsgs = [...messages, msg];
+    setMessages(newMsgs);
+    setInput('');
+    setLoading(true);
+
+    try {
+      const response = await invoke<string>('ai_complete', {
+        messages: newMsgs,
+        system: null
+      });
+      setMessages([...newMsgs, { role: 'assistant', content: response }]);
+    } catch (e) {
+      setMessages([...newMsgs, { role: 'assistant', content: `Error: ${e}` }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderContent = (content: MessageContent) => {
+    if (typeof content === 'string') return content;
+    return (
+      <div className='flex flex-col gap-2'>
+        <img src={`data:image/png;base64,${content.image_base64}`} alt='Uploaded' className='max-w-sm rounded-md shadow-sm' />
+        <p>{content.text}</p>
+      </div>
+    );
+  };
+
+  return (
+    <div className='flex flex-col h-full w-full bg-zinc-950 font-sans text-zinc-100'>
+      {/* Header */}
+      <div className='flex items-center px-6 py-4 border-b border-zinc-800 bg-zinc-920'>
+        <h2 className='text-lg font-semibold flex items-center gap-2'>
+          <Bot className='text-blue-400' /> AI Assistant
+        </h2>
+      </div>
+
+      {/* Messages */}
+      <div className='flex-1 overflow-y-auto p-6 space-y-6'>
+        {messages.length === 0 && (
+          <div className='h-full flex flex-col items-center justify-center text-zinc-500 gap-4 opacity-50'>
+            <Bot size={48} />
+            <p>How can I help you today?</p>
+          </div>
+        )}
+        {messages.map((m, i) => (
+          <div key={i} className={`flex gap-4 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
+            <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${m.role === 'user' ? 'bg-blue-600' : 'bg-zinc-800'}`}>
+              {m.role === 'user' ? <User size={16} /> : <Bot size={16} />}
+            </div>
+            <div className={`max-w-[75%] px-4 py-3 rounded-2xl whitespace-pre-wrap ${m.role === 'user' ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-200'}`}>
+              {renderContent(m.content)}
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div className='flex gap-4'>
+            <div className='flex-shrink-0 w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center'>
+              <Bot size={16} />
+            </div>
+            <div className='px-4 py-3 rounded-2xl bg-zinc-800 text-zinc-400 flex items-center gap-2'>
+              <Loader2 size={16} className='animate-spin' /> Thinking...
+            </div>
+          </div>
+        )}
+        <div ref={endRef} />
+      </div>
+
+      {/* Input */}
+      <div className='p-4 border-t border-zinc-800 bg-zinc-920'>
+        <div className='flex gap-2 max-w-4xl mx-auto'>
+          <textarea
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            placeholder='Type a message... (Shift+Enter for new line)'
+            className='flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none min-h-[52px] max-h-48'
+            rows={1}
+          />
+          <button
+            onClick={handleSend}
+            disabled={loading || !input.trim()}
+            className='self-end p-3 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:hover:bg-blue-600 text-white transition-colors'
+          >
+            <Send size={20} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
