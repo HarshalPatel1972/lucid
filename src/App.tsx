@@ -55,9 +55,7 @@ export default function App() {
       const key = event.payload;
 
       if (key === "snip_region") {
-        // Force 0% opacity for clear snip (see everything behind)
-        document.documentElement.style.setProperty("--app-opacity", "0.0");
-        try { await invoke("set_opacity", { opacity: 0.0 }); } catch (e) {}
+        // Snipping focuses on CSS transparency to avoid losing window focus
         setIsSnipping(true);
       } else if (key === "focus_chat") {
         setView("chat");
@@ -75,17 +73,15 @@ export default function App() {
         });
       } else if (key === "capture_full") {
         try {
-          // Hide for full capture too
+          // Hide for full capture
           document.documentElement.style.setProperty("--app-opacity", "0.0");
           try { await invoke("set_opacity", { opacity: 0.0 }); } catch (e) {}
-          // Give extra time for window to vanish
-          await new Promise(r => setTimeout(r, 200));
+          await new Promise(r => setTimeout(r, 150));
 
           const base64 = await invoke("capture_full");
           setPendingSnip({ type: "vision", data: base64 as string });
           setView("chat");
 
-          // Restore from config
           await restoreOpacity();
         } catch (e) {
           console.error("Full capture failed", e);
@@ -195,10 +191,15 @@ export default function App() {
     } catch (e) {}
   };
 
+  const currentOpacity = appConfig?.appearance?.opacity ?? 1.0;
+
   return (
     <div
-      className="app-root"
-      style={{ fontFamily }}
+      className={`app-root ${isSnipping ? 'snipping' : ''}`}
+      style={{ 
+        fontFamily,
+        backgroundColor: isSnipping ? "transparent" : `rgba(14, 14, 16, ${currentOpacity})`
+      }}
     >
       <Toaster
         position="bottom-center"
@@ -215,7 +216,7 @@ export default function App() {
       />
 
       {/* ── Titlebar ── */}
-      <div className="titlebar" data-tauri-drag-region>
+      <div className="titlebar" data-tauri-drag-region style={{ opacity: isSnipping ? 0 : 1, pointerEvents: isSnipping ? 'none' : 'auto' }}>
         {/* Brand */}
         <div className="titlebar-brand">
           <div className="brand-glyph">
@@ -280,21 +281,7 @@ export default function App() {
       </div>
 
       {/* ── Content ── */}
-      <div className="app-content">
-        {isSnipping && (
-          <SnipOverlay
-            onCapture={async (res) => {
-              setIsSnipping(false);
-              setPendingSnip(res);
-              setView("chat");
-              await restoreOpacity();
-            }}
-            onCancel={async () => {
-              setIsSnipping(false);
-              await restoreOpacity();
-            }}
-          />
-        )}
+      <div className="app-content" style={{ opacity: isSnipping ? 0 : 1, pointerEvents: isSnipping ? 'none' : 'auto' }}>
         <div style={{ display: view === "chat" ? "flex" : "none", flex: 1, overflow: "hidden", flexDirection: "column", width: "100%" }}>
           <ChatPanel
             sessionKey={sessionKey}
@@ -312,8 +299,21 @@ export default function App() {
         </div>
       </div>
 
+      {/* Global Overlays */}
+      {isSnipping && (
+        <SnipOverlay
+          onCapture={async (res) => {
+            setIsSnipping(false);
+            setPendingSnip(res);
+            setView("chat");
+            toast.success("Text captured to clipboard!");
+          }}
+          onCancel={() => setIsSnipping(false)}
+        />
+      )}
+
       {/* Stealth Resize Grip */}
-      <div className={`resize-grip ${isResizing ? 'active' : ''}`} onMouseDown={startResizing}>
+      <div className={`resize-grip ${isResizing ? 'active' : ''}`} onMouseDown={startResizing} style={{ opacity: isSnipping ? 0 : 1 }}>
         <div className="grip-row">
           <div className="grip-dot" />
           <div className="grip-dot" />
