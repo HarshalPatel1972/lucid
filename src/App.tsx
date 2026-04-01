@@ -157,26 +157,40 @@ export default function App() {
           </span>
         </div>
         <div
-          className="flex px-2 z-50 pointer-events-auto relative"
+          className="flex px-2 z-50 relative h-full"
           style={{ WebkitAppRegion: "no-drag" } as any}
         >
           <button
-            className="w-10 h-6 flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-white rounded cursor-pointer"
-            onClick={() => getCurrentWindow().minimize()}
+            className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+            onClick={async () => {
+              const win = getCurrentWindow();
+              await win.minimize();
+            }}
             title="Minimize"
           >
             <Minus size={14} />
           </button>
           <button
-            className="w-10 h-6 flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-white rounded cursor-pointer"
-            onClick={() => getCurrentWindow().toggleMaximize()}
-            title="Maximize"
+            className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+            onClick={async () => {
+              const win = getCurrentWindow();
+              const isMax = await win.isMaximized();
+              if (isMax) {
+                await win.unmaximize();
+              } else {
+                await win.maximize();
+              }
+            }}
+            title="Toggle Maximize"
           >
             <div className="w-3 h-3 border border-zinc-400 rounded-sm" />
           </button>
           <button
-            className="w-10 h-6 flex items-center justify-center text-zinc-400 hover:bg-red-600 hover:text-white rounded cursor-pointer transition-colors"
-            onClick={() => getCurrentWindow().close()}
+            className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-red-600 hover:text-white transition-colors cursor-pointer"
+            onClick={async () => {
+              const win = getCurrentWindow();
+              await win.close();
+            }}
             title="Close"
           >
             <X size={14} />
