@@ -1,51 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 
-interface CaptureResultModalProps {
-  imageData: string;
-  onChoice: (type: 'ocr' | 'vision') => void;
-  onCancel: () => void;
-}
-
-export function CaptureResultModal({ imageData, onChoice, onCancel }: CaptureResultModalProps) {
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 10000,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      backgroundColor: 'rgba(0,0,0,0.8)'
-    }}>
-      <div style={{
-        backgroundColor: 'var(--bg-panel)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-lg)',
-        padding: 'var(--space-4)',
-        display: 'flex', flexDirection: 'column', gap: 'var(--space-4)',
-        maxWidth: '400px', width: '100%'
-      }}>
-        <img
-          src={`data:image/png;base64,${imageData}`}
-          alt="Captured area"
-          style={{
-            maxWidth: '100%', maxHeight: '200px', objectFit: 'contain',
-            border: '1px solid var(--border)', borderRadius: 'var(--radius-md)'
-          }}
-        />
-        <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-          <button onClick={() => onChoice('ocr')} style={{ flex: 1, padding: 'var(--space-2)', cursor: 'pointer', backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-            Send as Text (OCR)
-          </button>
-          <button onClick={() => onChoice('vision')} style={{ flex: 1, padding: 'var(--space-2)', cursor: 'pointer', backgroundColor: 'var(--accent-blue)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)' }}>
-            Send as Image (Vision)
-          </button>
-        </div>
-        <button onClick={onCancel} style={{ padding: 'var(--space-2)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--text-secondary)', border: '1px solid transparent', borderRadius: 'var(--radius-md)' }}>
-          Cancel
-        </button>
-      </div>
-    </div>
-  );
-}
-
 interface SnipOverlayProps {
   onCapture: (result: { type: 'ocr' | 'vision'; data: string }) => void;
   onCancel: () => void;
@@ -57,7 +12,6 @@ export function SnipOverlay({ onCapture, onCancel }: SnipOverlayProps) {
   const [startY, setStartY] = useState(0);
   const [currentX, setCurrentX] = useState(0);
   const [currentY, setCurrentY] = useState(0);
-  const [captureData, setCaptureData] = useState<{b64: string, rect: {x:number, y:number, width:number, height:number}} | null>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -90,46 +44,35 @@ export function SnipOverlay({ onCapture, onCancel }: SnipOverlayProps) {
     const width = Math.abs(currentX - startX);
     const height = Math.abs(currentY - startY);
 
-    if (width < 10 || height < 10) {
+    if (width < 5 || height < 5) {
       onCancel();
       return;
     }
 
     try {
-      const b64 = await invoke<string>('capture_region', { x, y, width, height });
-      setCaptureData({ b64, rect: { x, y, width, height } });
+      // Direct OCR as requested
+      const text = await invoke<string>('ocr_region', { x: Math.floor(x), y: Math.floor(y), width: Math.floor(width), height: Math.floor(height) });
+      
+      if (text) {
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch (clipErr) {
+          console.error("Clipboard copy failed:", clipErr);
+        }
+        onCapture({ type: 'ocr', data: text });
+      } else {
+        onCancel();
+      }
     } catch (err) {
-      console.error("Capture failed:", err);
+      console.error("Capture or OCR failed:", err);
       onCancel();
     }
   };
 
-  if (captureData) {
-    return (
-      <CaptureResultModal
-        imageData={captureData.b64}
-        onChoice={async (type) => {
-          if (type === 'ocr') {
-             try {
-               const text = await invoke<string>('ocr_region', captureData.rect);
-               onCapture({ type: 'ocr', data: text });
-             } catch(err) {
-               console.error(err);
-               onCapture({ type: 'ocr', data: '[OCR Failed]' });
-             }
-          } else {
-             onCapture({ type: 'vision', data: captureData.b64 });
-          }
-        }}
-        onCancel={onCancel}
-      />
-    );
-  }
-
   const left = Math.min(startX, currentX);
   const top = Math.min(startY, currentY);
-  const width = Math.abs(currentX - startX);
-  const height = Math.abs(currentY - startY);
+  const drawWidth = Math.abs(currentX - startX);
+  const drawHeight = Math.abs(currentY - startY);
 
   return (
     <div
@@ -147,19 +90,23 @@ export function SnipOverlay({ onCapture, onCancel }: SnipOverlayProps) {
         <div
           style={{
             position: 'absolute',
-            left, top, width, height,
-            border: '2px solid var(--accent-blue)',
-            backgroundColor: 'rgba(0, 122, 204, 0.2)'
+            left, top, width: drawWidth, height: drawHeight,
+            border: '2px solid #3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.15)',
+            boxShadow: '0 0 15px rgba(59, 130, 246, 0.3)'
           }}
         />
       )}
       <div style={{
-        position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)',
-        color: 'var(--text-heading)', fontFamily: 'var(--font-ui)', fontSize: 'var(--font-size-md)',
-        padding: 'var(--space-2) var(--space-4)', backgroundColor: 'rgba(0,0,0,0.7)',
-        borderRadius: 'var(--radius-md)'
+        position: 'absolute', bottom: 40, left: '50%', transform: 'translateX(-50%)',
+        color: '#fff', fontSize: '14px', fontWeight: '500',
+        padding: '8px 20px', backgroundColor: 'rgba(0,0,0,0.8)',
+        borderRadius: '99px', border: '1px solid rgba(255,255,255,0.1)',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+        backdropFilter: 'blur(4px)',
+        pointerEvents: 'none'
       }}>
-        ESC to cancel
+        Drag to snip text &bull; ESC to cancel
       </div>
     </div>
   );
