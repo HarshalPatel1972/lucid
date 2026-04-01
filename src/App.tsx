@@ -55,6 +55,9 @@ export default function App() {
       const key = event.payload;
 
       if (key === "snip_region") {
+        // Force 100% opacity for clear snip
+        document.documentElement.style.setProperty("--app-opacity", "1.0");
+        try { await invoke("set_opacity", { opacity: 1.0 }); } catch (e) {}
         setIsSnipping(true);
       } else if (key === "focus_chat") {
         setView("chat");
@@ -174,6 +177,15 @@ export default function App() {
     }
   };
 
+  const restoreOpacity = async () => {
+    const latestConfig: any = await invoke("get_config");
+    const targetOpacity = latestConfig?.appearance?.opacity ?? 1.0;
+    document.documentElement.style.setProperty("--app-opacity", targetOpacity.toString());
+    try {
+      await invoke("set_opacity", { opacity: targetOpacity });
+    } catch (e) {}
+  };
+
   return (
     <div
       className="app-root"
@@ -262,12 +274,16 @@ export default function App() {
       <div className="app-content">
         {isSnipping && (
           <SnipOverlay
-            onCapture={(res) => {
+            onCapture={async (res) => {
               setIsSnipping(false);
               setPendingSnip(res);
               setView("chat");
+              await restoreOpacity();
             }}
-            onCancel={() => setIsSnipping(false)}
+            onCancel={async () => {
+              setIsSnipping(false);
+              await restoreOpacity();
+            }}
           />
         )}
         <div style={{ display: view === "chat" ? "flex" : "none", flex: 1, overflow: "hidden", flexDirection: "column", width: "100%" }}>
