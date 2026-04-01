@@ -4,6 +4,7 @@ pub mod config;
 pub mod ghost;
 pub mod hotkeys;
 pub mod window;
+pub mod tray;
 
 use std::sync::Mutex;
 use tauri::Manager;
@@ -40,6 +41,8 @@ fn get_config(state: tauri::State<'_, AppState>) -> Result<config::Config, Strin
 #[tauri::command]
 fn save_config(config: config::Config, state: tauri::State<'_, AppState>, app: tauri::AppHandle) -> Result<(), String> {
     *state.config.lock().unwrap() = config.clone();
+    let _ = hotkeys::register_dynamic(&app, &config.hotkeys);
+    
     if let Ok(dir) = app.path().app_data_dir() {
         let _ = std::fs::create_dir_all(&dir);
         let path = dir.join("config.json");
@@ -139,6 +142,7 @@ pub fn run() {
             });
 
             hotkeys::register(app).expect("failed to register hotkeys");
+            let _ = tray::setup(app);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
