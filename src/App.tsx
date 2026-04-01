@@ -26,7 +26,6 @@ export default function App() {
         setAppConfig(config);
         if (config?.appearance?.theme) {
           document.documentElement.setAttribute("data-theme", config.appearance.theme);
-          // Using classList instead of className to avoid wiping other classes
           document.documentElement.classList.add(config.appearance.theme);
         }
         if (config.specs_mode) {
@@ -118,8 +117,7 @@ export default function App() {
     setAppConfig(config);
     if (config?.appearance?.theme) {
       document.documentElement.setAttribute("data-theme", config.appearance.theme);
-      // Remove possible other themes first if they were there
-      const themes = ["dark", "light", "dracula", "nord", "gruvbox", "system"];
+      const themes = ["dark", "light", "dracula", "nord", "gruvbox", "system", "amoled", "emerald", "cyber", "rose-pine"];
       themes.forEach(t => document.documentElement.classList.remove(t));
       document.documentElement.classList.add(config.appearance.theme);
     }
@@ -299,12 +297,14 @@ export default function App() {
         <div className="grip-row">
           <div className="grip-dot" />
           <div className="grip-dot" />
+          <div className="grip-dot" />
         </div>
         <div className="grip-row">
+          <div className="grip-dot" />
+          <div className="grip-dot" />
           <div className="grip-dot" />
         </div>
       </div>
     </div>
   );
-}
 }
