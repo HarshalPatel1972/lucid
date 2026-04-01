@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Settings, Key, Monitor, Shield, Save, Keyboard } from "lucide-react";
+import { Settings, Key, Monitor, Shield, Save, Keyboard, MessageSquare } from "lucide-react";
 import { toast } from "react-hot-toast";
 
 interface SettingsPanelProps {
@@ -101,6 +101,13 @@ export function SettingsPanel({ onConfigChanged }: SettingsPanelProps) {
           id="shortcuts"
           label="Hotkeys"
           icon={Keyboard}
+          active={activeTab}
+          set={setActiveTab}
+        />
+        <TabButton
+          id="ai"
+          label="AI Persona"
+          icon={MessageSquare}
           active={activeTab}
           set={setActiveTab}
         />
@@ -365,6 +372,26 @@ export function SettingsPanel({ onConfigChanged }: SettingsPanelProps) {
                 }
                 className="w-5 h-5 accent-purple-500"
               />
+            </div>
+          </div>
+        )}
+
+        {activeTab === "ai" && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            <h3 className="text-2xl font-semibold mb-6 flex items-center gap-2">
+              <MessageSquare className="text-blue-500" /> AI Persona & Formatting
+            </h3>
+            <div className="flex flex-col gap-1.5 ring-1 ring-zinc-800 bg-zinc-900/50 p-6 rounded-2xl border border-zinc-800">
+              <label className="text-sm font-medium text-zinc-100 mb-2">Pre-prompt Structure (System Instructions)</label>
+              <textarea
+                value={config.session_prompt || ""}
+                onChange={(e) => setConfig({ ...config, session_prompt: e.target.value })}
+                placeholder="e.g. Always respond in JSON format, or: Act as a master coder..."
+                className="bg-zinc-950 border border-zinc-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 rounded-xl px-4 py-3 text-zinc-100 outline-none transition-all h-64 font-mono text-sm resize-none"
+              />
+              <p className="text-xs text-zinc-500 mt-4 leading-relaxed">
+                This prompt acts as a "System Message" for the AI. Whatever you define here will force the AI to respond in your preferred format and personality across all your conversations.
+              </p>
             </div>
           </div>
         )}
