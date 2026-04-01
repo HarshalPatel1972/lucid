@@ -154,6 +154,18 @@ pub fn run() {
 
             hotkeys::register(app).expect("failed to register hotkeys");
             let _ = tray::setup(app);
+
+            // Resize and Center Window to 85% of screen
+            let app_handle = app.handle();
+            if let Some(window) = app_handle.get_webview_window("main") {
+                if let Some(monitor) = window.current_monitor().ok().flatten() {
+                    let size = monitor.size();
+                    let w = (size.width as f64 * 0.85) as u32;
+                    let h = (size.height as f64 * 0.85) as u32;
+                    let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize { width: w, height: h }));
+                    let _ = window.center();
+                }
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
