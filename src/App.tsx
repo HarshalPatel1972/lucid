@@ -72,6 +72,7 @@ export default function App() {
         });
       } else if (key === "capture_full") {
         try {
+          // Hide for full capture (CSS backup)
           document.documentElement.style.setProperty("--app-opacity", "0.0");
           try { await invoke("set_opacity", { opacity: 0.0 }); } catch (e) {}
           await new Promise(r => setTimeout(r, 150));
@@ -84,28 +85,17 @@ export default function App() {
         } catch (e) {
           console.error("Full capture failed", e);
         }
-      } else if (key === "toggle_click_through" || key === "Ctrl+Shift+C") {
-        const newGhostMode = !config.ghost_mode;
+      } else if (key === "toggle_click_through") {
+        // Logic is now in Rust for instant response.
+        // Frontend just refreshes state to update icons/toasts.
         try {
-          const updatedConfig = { ...config, ghost_mode: newGhostMode };
-          await Promise.all([
-            invoke("set_click_through", { enabled: newGhostMode }),
-            invoke("save_config", { config: updatedConfig }),
-          ]);
+          const freshConfig: any = await invoke("get_config");
+          configRef.current = freshConfig;
+          setAppConfig(freshConfig);
+          const isEnabled = freshConfig.ghost_mode;
           
-          if (newGhostMode) {
-            // Ghost ON -> Invisible + Click-through
-            document.documentElement.style.setProperty("--app-opacity", "0.0");
-            try { await invoke("set_opacity", { opacity: 0.0 }); } catch (e) {}
-          } else {
-            // Ghost OFF -> Restore opacity from config
-            await restoreOpacity();
-          }
-
-          configRef.current = updatedConfig;
-          setAppConfig(updatedConfig);
-          toast(newGhostMode ? "Ghost mode enabled" : "Ghost mode disabled", {
-            icon: newGhostMode ? "👻" : "👁",
+          toast(isEnabled ? "Ghost mode enabled" : "Ghost mode disabled", {
+            icon: isEnabled ? "👻" : "👁",
             style: {
               background: "#0e0e10",
               color: "#fafafa",
@@ -114,7 +104,7 @@ export default function App() {
             },
           });
         } catch (e) {
-          console.error("Failed toggling click-through", e);
+          console.error("Failed refreshing ghost state", e);
         }
       }
     });

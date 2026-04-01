@@ -28,7 +28,9 @@ pub fn register_dynamic(app_handle: &tauri::AppHandle, config: &crate::config::H
         config.capture_full.clone(),
         config.focus_chat.clone(),
         config.new_session.clone(),
-        "Ctrl+Shift+C".to_string(), // Force-add the new Ghost Mode key
+        "Ctrl+Shift+C".to_string(), 
+        "Control+Shift+C".to_string(), 
+        "Alt+G".to_string(), 
         "Ctrl+Shift+Up".to_string(),
         "Ctrl+Shift+Down".to_string(),
         "Ctrl+Shift+Left".to_string(),
@@ -76,26 +78,33 @@ pub fn register_dynamic(app_handle: &tauri::AppHandle, config: &crate::config::H
                         let _ = window.set_focus();
                     }
                 }
-            } else if matches_shortcut(&cfg.toggle_click_through) || shortcut_str == "ctrl+shift+c" {
+            } else if matches_shortcut(&cfg.toggle_click_through) || shortcut_str == "ctrl+shift+c" || shortcut_str == "control+shift+c" || shortcut_str == "alt+g" {
                 if let Some(window) = app.get_webview_window("main") {
                     let state = app.state::<AppState>();
                     let mut config = state.config.lock().unwrap();
                     let new_ghost = !config.ghost_mode;
                     
-                    // 1. Apply Click-through
-                    let _ = window.set_ignore_cursor_events(new_ghost);
-                    
-                    // 2. Apply Opacity
-                    if new_ghost {
-                        let _ = window.set_opacity(0.0);
-                    } else {
-                        let _ = window.set_opacity(config.appearance.opacity);
+                    #[cfg(target_os = "windows")]
+                    {
+                        use windows::Win32::Foundation::HWND;
+                        if let Ok(hwnd_raw) = window.hwnd() {
+                            let hwnd = HWND(hwnd_raw.0 as *mut _);
+                            
+                            // 1. Apply Click-through (Win32)
+                            let _ = crate::window::set_click_through(hwnd, new_ghost);
+                            
+                            // 2. Apply Opacity (Win32)
+                            let target_opacity = if new_ghost { 0.0 } else { config.appearance.opacity };
+                            let _ = crate::window::set_opacity(hwnd, target_opacity);
+                        }
                     }
 
                     // 3. Update and Persist Config
                     config.ghost_mode = new_ghost;
                     let updated_cfg = config.clone();
-                    let _ = app.emit("hotkey", "toggle_click_through"); // Notify frontend
+                    
+                    // Notify frontend to update UI state (icons, etc)
+                    let _ = app.emit("hotkey", "toggle_click_through");
                     
                     // 4. Save to Disk
                     if let Ok(dir) = app.path().app_data_dir() {
