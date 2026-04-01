@@ -77,7 +77,10 @@ export function ChatPanel({ sessionKey, pendingSnip, onSnipConsumed }: ChatPanel
   return (
     <div className='flex flex-col h-full w-full bg-zinc-950 font-sans text-zinc-100'>
       {/* Header */}
-      <div className='flex items-center px-6 py-4 border-b border-zinc-800 bg-zinc-920'>
+      <div 
+        className='flex items-center px-6 py-4 border-b border-zinc-800 bg-zinc-920 select-none'
+        data-tauri-drag-region
+      >
         <h2 className='text-lg font-semibold flex items-center gap-2'>
           <Bot className='text-blue-400' /> AI Assistant
         </h2>

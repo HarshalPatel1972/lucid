@@ -27,8 +27,11 @@ export function SettingsPanel() {
   return (
     <div className='flex h-full w-full bg-zinc-950 text-zinc-100 font-sans overflow-hidden'>
       {/* Sidebar */}
-      <div className='w-64 bg-zinc-920 border-r border-zinc-800 p-4 flex flex-col gap-2'>
-        <h2 className='text-xl font-bold mb-6 flex items-center gap-2 text-zinc-100'>
+      <div 
+        className='w-64 bg-zinc-920 border-r border-zinc-800 p-4 flex flex-col gap-2 select-none'
+        data-tauri-drag-region
+      >
+        <h2 className='text-xl font-bold mb-6 flex items-center gap-2 text-zinc-100 pointer-events-none'>
           <Settings size={20} className='text-zinc-400' /> Settings
         </h2>
         <TabButton id='api_keys' label='API Keys' icon={Key} active={activeTab} set={setActiveTab} />
