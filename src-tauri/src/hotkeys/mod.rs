@@ -77,7 +77,34 @@ pub fn register_dynamic(app_handle: &tauri::AppHandle, config: &crate::config::H
                     }
                 }
             } else if matches_shortcut(&cfg.toggle_click_through) || shortcut_str == "ctrl+shift+c" {
-                let _ = app.emit("hotkey", "toggle_click_through");
+                if let Some(window) = app.get_webview_window("main") {
+                    let state = app.state::<AppState>();
+                    let mut config = state.config.lock().unwrap();
+                    let new_ghost = !config.ghost_mode;
+                    
+                    // 1. Apply Click-through
+                    let _ = window.set_ignore_cursor_events(new_ghost);
+                    
+                    // 2. Apply Opacity
+                    if new_ghost {
+                        let _ = window.set_opacity(0.0);
+                    } else {
+                        let _ = window.set_opacity(config.appearance.opacity);
+                    }
+
+                    // 3. Update and Persist Config
+                    config.ghost_mode = new_ghost;
+                    let updated_cfg = config.clone();
+                    let _ = app.emit("hotkey", "toggle_click_through"); // Notify frontend
+                    
+                    // 4. Save to Disk
+                    if let Ok(dir) = app.path().app_data_dir() {
+                        let path = dir.join("config.json");
+                        if let Ok(json) = serde_json::to_string(&updated_cfg) {
+                            let _ = std::fs::write(path, json);
+                        }
+                    }
+                }
             } else if matches_shortcut(&cfg.snip_region) {
                 let _ = app.emit("hotkey", "snip_region");
             } else if matches_shortcut(&cfg.capture_full) {
