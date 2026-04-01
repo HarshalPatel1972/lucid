@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Settings, Key, Monitor, Shield, Save } from 'lucide-react';
+import { Settings, Key, Monitor, Shield, Save, Keyboard } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 export function SettingsPanel() {
   const [config, setConfig] = useState<any>(null);
@@ -15,8 +16,37 @@ export function SettingsPanel() {
     setSaving(true);
     try {
       await invoke('save_config', { config });
-    } catch (e) {
+      
+      // Live reload opacity
+      if (config.appearance && config.appearance.opacity !== undefined) {
+        // Apply CSS variable
+        document.documentElement.style.setProperty('--app-opacity', config.appearance.opacity.toString());
+        // Apply to native window wrapper
+        try {
+          await invoke('set_opacity', { opacity: config.appearance.opacity });
+        } catch(e) {
+          console.error("Window opacity set failed:", e);
+        }
+      }
+
+      // Apply native Ghost Mode toggle
+      try {
+        await invoke('set_click_through', { enabled: config.ghost_mode });
+      } catch (e) {
+        console.error("Window click-through set failed:", e);
+      }
+
+      // Apply native Stealth toggle
+      try {
+        await invoke('set_stealth', { enabled: config.stealth_on_launch });
+      } catch (e) {
+        console.error("Window stealth set failed:", e);
+      }
+
+      toast.success('Settings saved successfully');
+    } catch (e: any) {
       console.error(e);
+      toast.error(`Failed to save settings: ${e.toString()}`);
     } finally {
       setSaving(false);
     }
@@ -29,7 +59,6 @@ export function SettingsPanel() {
       {/* Sidebar */}
       <div 
         className='w-64 bg-zinc-920 border-r border-zinc-800 p-4 flex flex-col gap-2 select-none'
-        data-tauri-drag-region
       >
         <h2 className='text-xl font-bold mb-6 flex items-center gap-2 text-zinc-100 pointer-events-none'>
           <Settings size={20} className='text-zinc-400' /> Settings
@@ -37,6 +66,7 @@ export function SettingsPanel() {
         <TabButton id='api_keys' label='API Keys' icon={Key} active={activeTab} set={setActiveTab} />
         <TabButton id='general' label='General' icon={Monitor} active={activeTab} set={setActiveTab} />
         <TabButton id='stealth' label='Stealth & Ghost' icon={Shield} active={activeTab} set={setActiveTab} />
+        <TabButton id='shortcuts' label='Hotkeys' icon={Keyboard} active={activeTab} set={setActiveTab} />
         <div className='flex-1' />
         <button onClick={saveConfig} className='mt-auto flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white rounded-md py-2 px-4 transition-colors font-medium'>
           <Save size={16} /> {saving ? 'Saving...' : 'Save Settings'}
@@ -63,9 +93,61 @@ export function SettingsPanel() {
             <h3 className='text-2xl font-semibold mb-6 flex items-center gap-2'>
               <Monitor className='text-emerald-500' /> General Settings
             </h3>
-            <InputField label='Theme' value={config.appearance.theme || ''} onChange={(v: string) => setConfig({...config, appearance: {...config.appearance, theme: v}})} placeholder='system / dark / light' />
-            <InputField label='Font Family' value={config.appearance.font_family || ''} onChange={(v: string) => setConfig({...config, appearance: {...config.appearance, font_family: v}})} />
-            <InputField label='Opacity (0.1 to 1.0)' value={config.appearance.opacity?.toString() || ''} onChange={(v: string) => setConfig({...config, appearance: {...config.appearance, opacity: parseFloat(v)}})} type='number' />
+            
+            <div className='flex flex-col gap-1.5'>
+              <label className='text-sm font-medium text-zinc-400'>Theme</label>
+              <select 
+                value={config.appearance.theme || 'system'}
+                onChange={e => setConfig({...config, appearance: {...config.appearance, theme: e.target.value}})}
+                className='bg-zinc-900 border border-zinc-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 rounded-lg px-4 py-2.5 text-zinc-100 outline-none transition-all appearance-none'
+              >
+                <option value="system">System</option>
+                <option value="dark">Dark</option>
+                <option value="light">Light</option>
+              </select>
+            </div>
+
+            <div className='flex flex-col gap-1.5'>
+              <label className='text-sm font-medium text-zinc-400'>Font Family</label>
+              <select 
+                value={config.appearance.font_family || 'sans-serif'}
+                onChange={e => setConfig({...config, appearance: {...config.appearance, font_family: e.target.value}})}
+                className='bg-zinc-900 border border-zinc-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 rounded-lg px-4 py-2.5 text-zinc-100 outline-none transition-all appearance-none'
+              >
+                <option value="sans-serif">System Sans</option>
+                <option value="serif">Serif</option>
+                <option value="monospace">Monospace</option>
+                <option value="'Inter', sans-serif">Inter</option>
+                <option value="'Fira Code', monospace">Fira Code</option>
+              </select>
+            </div>
+
+            <div className='flex flex-col gap-1.5'>
+              <label className='text-sm font-medium text-zinc-400'>Window Opacity ({config.appearance.opacity || 1.0})</label>
+              <input 
+                type="range"
+                min="0.1"
+                max="1.0"
+                step="0.05"
+                value={config.appearance.opacity || 1.0}
+                onChange={e => setConfig({...config, appearance: {...config.appearance, opacity: parseFloat(e.target.value)}})}
+                className="w-full accent-blue-500"
+              />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'shortcuts' && (
+          <div className='space-y-6 animate-in fade-in duration-200'>
+            <h3 className='text-2xl font-semibold mb-6 flex items-center gap-2'>
+              <Keyboard className='text-orange-500' /> Hotkeys
+            </h3>
+            <p className="text-sm text-zinc-400 mb-4">Set your preferred global shortcuts. You must use valid Tauri hotkey modifiers like "CommandOrControl+Shift+C".</p>
+            
+            <InputField label='Focus Chat' value={config.hotkeys.focus_chat || ''} onChange={(v: string) => setConfig({...config, hotkeys: {...config.hotkeys, focus_chat: v}})} placeholder='e.g., CommandOrControl+Space' />
+            <InputField label='Snip Region' value={config.hotkeys.snip_region || ''} onChange={(v: string) => setConfig({...config, hotkeys: {...config.hotkeys, snip_region: v}})} placeholder='e.g., CommandOrControl+Shift+S' />
+            <InputField label='New Session' value={config.hotkeys.new_session || ''} onChange={(v: string) => setConfig({...config, hotkeys: {...config.hotkeys, new_session: v}})} placeholder='e.g., CommandOrControl+Shift+N' />
+            <InputField label='Capture Full Screen' value={config.hotkeys.capture_full || ''} onChange={(v: string) => setConfig({...config, hotkeys: {...config.hotkeys, capture_full: v}})} placeholder='e.g., CommandOrControl+Shift+F' />
           </div>
         )}
 
