@@ -62,6 +62,20 @@ export default function App() {
         } else if (key === config.hotkeys.capture_full) {
           // Future phase: Capture Full -> Read screen -> send to chat
           console.log("Full capture requested");
+        } else if (key === config.hotkeys.toggle_click_through) {
+          const newGhostMode = !config.ghost_mode;
+          try {
+            await invoke('set_click_through', { enabled: newGhostMode });       
+            // Save config to persist
+            const updatedConfig = { ...config, ghost_mode: newGhostMode };      
+            await invoke('save_config', { config: updatedConfig });
+            toast(newGhostMode ? 'Ghost Mode: ON (Click-through enabled)' : 'Ghost Mode: OFF (Click-through disabled)', {
+              icon: '👻',
+              style: { background: '#18181b', color: '#fff', border: '1px solid #27272a' }
+            });
+          } catch (e) {
+            console.error("Failed toggling click-through", e);
+          }
         }
       } catch (err) {
         console.error("Failed handling hotkey", err);
