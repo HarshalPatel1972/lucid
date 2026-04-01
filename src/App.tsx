@@ -70,6 +70,9 @@ export default function App() {
         const key = event.payload;
 
         if (key === config.hotkeys.snip_region) {
+          // Force 100% opacity for clear snip
+          document.documentElement.style.setProperty("--app-opacity", "1.0");
+          try { await invoke("set_opacity", { opacity: 1.0 }); } catch (e) {}
           setIsSnipping(true);
         } else if (key === config.hotkeys.focus_chat) {
           setView("chat");
@@ -202,13 +205,28 @@ export default function App() {
         {/* Global Overlays */}
         {isSnipping && (
           <SnipOverlay
-            onCapture={(res) => {
-              console.log("Captured:", res.type);
+            onCapture={async (res) => {
               setIsSnipping(false);
               setPendingSnip(res);
               setView("chat");
+              // Restore opacity from config
+              const latestConfig: any = await invoke("get_config");
+              const targetOpacity = latestConfig?.appearance?.opacity ?? 1.0;
+              document.documentElement.style.setProperty("--app-opacity", targetOpacity.toString());
+              try {
+                await invoke("set_opacity", { opacity: targetOpacity });
+              } catch (e) {}
             }}
-            onCancel={() => setIsSnipping(false)}
+            onCancel={async () => {
+              setIsSnipping(false);
+              // Restore opacity from config
+              const latestConfig: any = await invoke("get_config");
+              const targetOpacity = latestConfig?.appearance?.opacity ?? 1.0;
+              document.documentElement.style.setProperty("--app-opacity", targetOpacity.toString());
+              try {
+                await invoke("set_opacity", { opacity: targetOpacity });
+              } catch (e) {}
+            }}
           />
         )}
 
@@ -232,9 +250,9 @@ export default function App() {
           <div className="flex-1" />
 
           {/* Vertical Opacity Slider */}
-          <div className="flex flex-col items-center gap-2 pb-2">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest rotate-180 [writing-mode:vertical-lr]">Opacity</span>
-            <div className="h-32 w-1.5 bg-zinc-800 rounded-full relative group cursor-pointer overflow-hidden">
+          <div className="flex flex-col items-center gap-3 pb-4">
+            <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-tighter [writing-mode:vertical-lr] rotate-180 select-none opacity-50">Opacity</span>
+            <div className="h-40 w-5 bg-zinc-800/50 rounded-2xl relative flex items-center justify-center group overflow-hidden border border-zinc-700/30">
                <input
                 type="range"
                 min="0.1"
@@ -243,6 +261,7 @@ export default function App() {
                 value={opacityValue}
                 onChange={async (e) => {
                   const val = parseFloat(e.target.value);
+                  if (!appConfig) return;
                   const newConfig = { ...appConfig, appearance: { ...appConfig.appearance, opacity: val } };
                   setAppConfig(newConfig);
                   
@@ -250,17 +269,20 @@ export default function App() {
                   document.documentElement.style.setProperty("--app-opacity", val.toString());
                   try {
                     await invoke("set_opacity", { opacity: val });
-                    // Explicitly save to persist immediately as requested in task 3
                     await invoke("save_config", { config: newConfig });
                   } catch (err) {}
                 }}
-                className="absolute inset-0 w-32 h-1.5 -rotate-90 origin-left translate-y-32 opacity-0 cursor-pointer z-30"
-                style={{ width: '128px', left: '50%', transform: 'translateX(-50%) rotate(-90deg)', transformOrigin: 'center' }}
+                className="absolute inset-0 cursor-pointer appearance-none bg-transparent -rotate-90 w-40 z-30"
+                style={{ 
+                   height: '20px',
+                   marginTop: '10px'
+                }}
               />
               <div 
-                className="absolute bottom-0 left-0 right-0 bg-blue-500 transition-all duration-75 pointer-events-none"
-                style={{ height: `${opacityValue * 100}%` }}
+                className="absolute bottom-0 left-0 right-0 bg-blue-500/80 transition-all duration-75 pointer-events-none rounded-b-xl"
+                style={{ height: `${opacityValue * 100}%`, filter: 'blur(0.5px)' }}
               />
+              <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-blue-400/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
           </div>
         </div>
