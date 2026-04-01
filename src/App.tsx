@@ -13,6 +13,7 @@ export default function App() {
   const [view, setView] = useState<'chat' | 'settings'>('chat');
   const [sessionKey, setSessionKey] = useState(0);
   const [pendingSnip, setPendingSnip] = useState<{type: 'ocr'|'vision', data: string} | null>(null);
+  const [appConfig, setAppConfig] = useState<any>(null);
 
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
@@ -22,6 +23,11 @@ export default function App() {
     async function initApp() {
       try {
         const config: any = await invoke('get_config');
+        setAppConfig(config);
+        if (config?.appearance?.theme) {
+            document.documentElement.setAttribute('data-theme', config.appearance.theme);
+            document.documentElement.className = config.appearance.theme;
+        }
         
         // Apply Appearance Opacity
         if (config.appearance && config.appearance.opacity !== undefined) {
@@ -60,8 +66,13 @@ export default function App() {
           setView('chat');
           setSessionKey(k => k + 1);
         } else if (key === config.hotkeys.capture_full) {
-          // Future phase: Capture Full -> Read screen -> send to chat
-          console.log("Full capture requested");
+          try {
+            const base64 = await invoke('capture_full', { displayIdx: 0 });
+            setPendingSnip({ type: 'vision', data: base64 as string });
+            setView('chat');
+          } catch(e) {
+            console.error("Full capture failed", e);
+          }
         } else if (key === config.hotkeys.toggle_click_through) {
           const newGhostMode = !config.ghost_mode;
           try {
@@ -87,29 +98,37 @@ export default function App() {
     };
   }, []);
 
+  const opacityValue = appConfig?.appearance?.opacity ?? 1.0;
+  const fontFamilyValue = appConfig?.appearance?.font_family || 'sans-serif';
+
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-zinc-950 font-sans text-zinc-100 rounded-lg">
+    <div 
+      className="flex flex-col h-screen w-screen overflow-hidden bg-zinc-950 text-zinc-100 rounded-lg transition-all duration-300"
+      style={{
+        backgroundColor: `rgba(9, 9, 11, ${opacityValue})`,
+        fontFamily: fontFamilyValue
+      }}
+    >
       <Toaster position="bottom-right" toastOptions={{ style: { background: '#18181b', color: '#fff', border: '1px solid #27272a' } }} />
       {/* Titlebar */}
-      <div 
-        data-tauri-drag-region
-        className="h-8 flex-shrink-0 bg-zinc-900 border-b border-zinc-800 flex justify-between items-center px-2 select-none"
-        style={{ WebkitAppRegion: 'drag' } as any}
+      <div
+        className="h-8 flex-shrink-0 border-b flex justify-between items-center select-none"
+        style={{ borderColor: `rgba(39, 39, 42, ${opacityValue})` }}
       >
-        <div className="flex items-center gap-2 pointer-events-none px-2">
-          <div className="w-4 h-4 bg-blue-600 rounded flex items-center justify-center text-[10px] font-bold text-white">L</div>
-          <span className="text-xs font-semibold text-zinc-400">Lucid</span>
+        <div data-tauri-drag-region className="flex items-center gap-2 px-4 h-full flex-1 cursor-grab" style={{ WebkitAppRegion: 'drag' } as any}>      
+          <div className="w-4 h-4 bg-blue-600 rounded flex items-center justify-center text-[10px] font-bold text-white pointer-events-none">L</div>
+          <span className="text-xs font-semibold text-zinc-400 pointer-events-none">Lucid</span>    
         </div>
-        <div className="flex" style={{ WebkitAppRegion: 'no-drag' } as any}>
-          <button 
-            className="w-10 h-6 flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-white rounded"
+        <div className="flex px-2 z-50 pointer-events-auto relative" style={{ WebkitAppRegion: 'no-drag' } as any}>    
+          <button
+            className="w-10 h-6 flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-white rounded cursor-pointer"
             onClick={() => getCurrentWindow().minimize()}
           >
             <Minus size={14} />
           </button>
-          <button 
-            className="w-10 h-6 flex items-center justify-center text-zinc-400 hover:bg-red-600 hover:text-white rounded"
-            onClick={() => getCurrentWindow().hide()}
+          <button
+            className="w-10 h-6 flex items-center justify-center text-zinc-400 hover:bg-red-600 hover:text-white rounded cursor-pointer"
+            onClick={() => getCurrentWindow().close()}
           >
             <X size={14} />
           </button>
@@ -151,7 +170,14 @@ export default function App() {
         {/* Content Area */}
         <div className="flex-1 relative">
           {view === 'chat' && <ChatPanel sessionKey={sessionKey} pendingSnip={pendingSnip} onSnipConsumed={() => setPendingSnip(null)} />}
-          {view === 'settings' && <SettingsPanel />}
+          {view === 'settings' && <SettingsPanel onConfigChanged={async () => {
+            const config: any = await invoke('get_config');
+            setAppConfig(config);
+            if (config?.appearance?.theme) {
+              document.documentElement.setAttribute('data-theme', config.appearance.theme);
+              document.documentElement.className = config.appearance.theme;
+            }
+          }} />}
         </div>
       </div>
     </div>
