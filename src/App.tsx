@@ -70,9 +70,9 @@ export default function App() {
         const key = event.payload;
 
         if (key === config.hotkeys.snip_region) {
-          // Force 100% opacity for clear snip
-          document.documentElement.style.setProperty("--app-opacity", "1.0");
-          try { await invoke("set_opacity", { opacity: 1.0 }); } catch (e) {}
+          // Force 0.0 opacity for clear snip (see everything behind)
+          document.documentElement.style.setProperty("--app-opacity", "0.0");
+          try { await invoke("set_opacity", { opacity: 0.0 }); } catch (e) {}
           setIsSnipping(true);
         } else if (key === config.hotkeys.focus_chat) {
           setView("chat");
@@ -81,9 +81,22 @@ export default function App() {
           setSessionKey((k) => k + 1);
         } else if (key === config.hotkeys.capture_full) {
           try {
+            // Hide for full capture too
+            document.documentElement.style.setProperty("--app-opacity", "0.0");
+            try { await invoke("set_opacity", { opacity: 0.0 }); } catch (e) {}
+            // Give extra time for window to vanish
+            await new Promise(r => setTimeout(r, 200));
+
             const base64 = await invoke("capture_full", { displayIdx: 0 });
             setPendingSnip({ type: "vision", data: base64 as string });
             setView("chat");
+
+            // Restore from config
+            const appConfig: any = await invoke("get_config");
+            const targetOpacity = appConfig?.appearance?.opacity ?? 1.0;
+            document.documentElement.style.setProperty("--app-opacity", targetOpacity.toString());
+            try { await invoke("set_opacity", { opacity: targetOpacity }); } catch (e) {}
+
           } catch (e) {
             console.error("Full capture failed", e);
           }
@@ -201,7 +214,89 @@ export default function App() {
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
+        <div className={`flex flex-1 overflow-hidden transition-opacity duration-200 ${isSnipping ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
+          {/* Main Navigation Sidebar */}
+          <div className="w-14 flex flex-col items-center py-4 border-r border-zinc-800 bg-zinc-900 gap-6 shrink-0 z-10">
+            <button
+              className={`p-2.5 rounded-xl transition-all duration-200 relative z-20 ${view === "chat" ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"}`}
+              onClick={() => setView("chat")}
+              title="Chat (Session)"
+            >
+              <MessageSquare size={22} />
+            </button>
+            <button
+              className={`p-2.5 rounded-xl transition-all duration-200 relative z-20 ${view === "settings" ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"}`}
+              onClick={() => setView("settings")}
+              title="Settings"
+            >
+              <Settings size={22} />
+            </button>
+
+            <div className="flex-1" />
+
+            {/* Vertical Opacity Slider */}
+            <div className="flex flex-col items-center gap-3 pb-4">
+              <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-tighter [writing-mode:vertical-lr] rotate-180 select-none opacity-50">Opacity</span>
+              <div className="h-40 w-5 bg-zinc-800/50 rounded-2xl relative flex items-center justify-center group overflow-hidden border border-zinc-700/30">
+                <input
+                  type="range"
+                  min="0.1"
+                  max="1.0"
+                  step="0.01"
+                  value={opacityValue}
+                  onChange={async (e) => {
+                    const val = parseFloat(e.target.value);
+                    if (!appConfig) return;
+                    const newConfig = { ...appConfig, appearance: { ...appConfig.appearance, opacity: val } };
+                    setAppConfig(newConfig);
+                    
+                    // Live Updates
+                    document.documentElement.style.setProperty("--app-opacity", val.toString());
+                    try {
+                      await invoke("set_opacity", { opacity: val });
+                      await invoke("save_config", { config: newConfig });
+                    } catch (err) {}
+                  }}
+                  className="absolute inset-0 cursor-pointer appearance-none bg-transparent -rotate-90 w-40 z-30"
+                  style={{ 
+                    height: '20px',
+                    marginTop: '10px'
+                  }}
+                />
+                <div 
+                  className="absolute bottom-0 left-0 right-0 bg-blue-500/80 transition-all duration-75 pointer-events-none rounded-b-xl"
+                  style={{ height: `${opacityValue * 100}%`, filter: 'blur(0.5px)' }}
+                />
+                <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-blue-400/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            </div>
+          </div>
+
+          {/* Content Area */}
+          <div className="flex-1 relative overflow-hidden">
+            <div className={`absolute inset-0 transition-opacity duration-300 ${view === "chat" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"}`}>
+              <ChatPanel
+                sessionKey={sessionKey}
+                pendingSnip={pendingSnip}
+                onSnipConsumed={() => setPendingSnip(null)}
+              />
+            </div>
+            <div className={`absolute inset-0 transition-opacity duration-300 ${view === "settings" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"}`}>
+              <SettingsPanel
+                onConfigChanged={async () => {
+                  const config: any = await invoke("get_config");
+                  setAppConfig(config);
+                  if (config?.appearance?.theme) {
+                    document.documentElement.setAttribute("data-theme", config.appearance.theme);
+                    document.documentElement.className = config.appearance.theme;
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
         {/* Global Overlays */}
         {isSnipping && (
           <SnipOverlay
@@ -229,86 +324,6 @@ export default function App() {
             }}
           />
         )}
-
-        {/* Main Navigation Sidebar */}
-        <div className="w-14 flex flex-col items-center py-4 border-r border-zinc-800 bg-zinc-900 gap-6 shrink-0 z-10">
-          <button
-            className={`p-2.5 rounded-xl transition-all duration-200 relative z-20 ${view === "chat" ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"}`}
-            onClick={() => setView("chat")}
-            title="Chat (Session)"
-          >
-            <MessageSquare size={22} />
-          </button>
-          <button
-            className={`p-2.5 rounded-xl transition-all duration-200 relative z-20 ${view === "settings" ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"}`}
-            onClick={() => setView("settings")}
-            title="Settings"
-          >
-            <Settings size={22} />
-          </button>
-
-          <div className="flex-1" />
-
-          {/* Vertical Opacity Slider */}
-          <div className="flex flex-col items-center gap-3 pb-4">
-            <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-tighter [writing-mode:vertical-lr] rotate-180 select-none opacity-50">Opacity</span>
-            <div className="h-40 w-5 bg-zinc-800/50 rounded-2xl relative flex items-center justify-center group overflow-hidden border border-zinc-700/30">
-               <input
-                type="range"
-                min="0.1"
-                max="1.0"
-                step="0.01"
-                value={opacityValue}
-                onChange={async (e) => {
-                  const val = parseFloat(e.target.value);
-                  if (!appConfig) return;
-                  const newConfig = { ...appConfig, appearance: { ...appConfig.appearance, opacity: val } };
-                  setAppConfig(newConfig);
-                  
-                  // Live Updates
-                  document.documentElement.style.setProperty("--app-opacity", val.toString());
-                  try {
-                    await invoke("set_opacity", { opacity: val });
-                    await invoke("save_config", { config: newConfig });
-                  } catch (err) {}
-                }}
-                className="absolute inset-0 cursor-pointer appearance-none bg-transparent -rotate-90 w-40 z-30"
-                style={{ 
-                   height: '20px',
-                   marginTop: '10px'
-                }}
-              />
-              <div 
-                className="absolute bottom-0 left-0 right-0 bg-blue-500/80 transition-all duration-75 pointer-events-none rounded-b-xl"
-                style={{ height: `${opacityValue * 100}%`, filter: 'blur(0.5px)' }}
-              />
-              <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-blue-400/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            </div>
-          </div>
-        </div>
-
-        {/* Content Area - Fixed for persistence Task 1 */}
-        <div className="flex-1 relative overflow-hidden">
-          <div className={`absolute inset-0 transition-opacity duration-300 ${view === "chat" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"}`}>
-            <ChatPanel
-              sessionKey={sessionKey}
-              pendingSnip={pendingSnip}
-              onSnipConsumed={() => setPendingSnip(null)}
-            />
-          </div>
-          <div className={`absolute inset-0 transition-opacity duration-300 ${view === "settings" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"}`}>
-            <SettingsPanel
-              onConfigChanged={async () => {
-                const config: any = await invoke("get_config");
-                setAppConfig(config);
-                if (config?.appearance?.theme) {
-                  document.documentElement.setAttribute("data-theme", config.appearance.theme);
-                  document.documentElement.className = config.appearance.theme;
-                }
-              }}
-            />
-          </div>
-        </div>
       </div>
     </div>
   );
