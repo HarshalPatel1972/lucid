@@ -1,7 +1,9 @@
 pub mod ghost;
+pub mod hotkeys;
 pub mod window;
 
 use tauri::Manager;
+
 
 #[tauri::command]
 fn set_stealth(window: tauri::Window, enabled: bool) -> Result<(), String> {
@@ -67,6 +69,11 @@ fn restore_position(window: tauri::Window, app: tauri::AppHandle) -> Result<(), 
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .setup(|app| {
+            hotkeys::register(app).expect("failed to register hotkeys");
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             set_stealth,
             set_click_through,
