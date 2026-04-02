@@ -110,6 +110,11 @@ fn set_opacity(window: tauri::Window, opacity: f64) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn start_drag(window: tauri::Window) -> Result<(), String> {
+    window.start_dragging().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn nudge_window(window: tauri::Window, dx: i32, dy: i32) -> Result<(), String> {
     crate::window::nudge_window(&window, dx, dy).map_err(|e| e.to_string())
 }
@@ -169,6 +174,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            start_drag,
             set_stealth,
             set_click_through,
             set_opacity,
@@ -187,4 +193,3 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-

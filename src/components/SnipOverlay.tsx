@@ -91,9 +91,9 @@ export function SnipOverlay({ onCapture, onCancel }: SnipOverlayProps) {
           style={{
             position: 'absolute',
             left, top, width: drawWidth, height: drawHeight,
-            border: '2px solid #3b82f6',
-            backgroundColor: 'rgba(59, 130, 246, 0.15)',
-            boxShadow: '0 0 15px rgba(59, 130, 246, 0.3)'
+            border: '2px solid #10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.15)',
+            boxShadow: '0 0 15px rgba(16, 185, 129, 0.3)'
           }}
         />
       )}

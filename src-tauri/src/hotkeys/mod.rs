@@ -21,13 +21,15 @@ pub fn is_reserved(shortcut_str: &str) -> bool {
 }
 
 pub fn register_dynamic(app_handle: &tauri::AppHandle, config: &crate::config::HotkeyConfig) -> Result<()> {
-    let mut shortcuts_to_register = vec![
+    let shortcuts_to_register = vec![
         config.toggle_visibility.clone(),
         config.toggle_click_through.clone(),
         config.snip_region.clone(),
         config.capture_full.clone(),
         config.focus_chat.clone(),
         config.new_session.clone(),
+        "Ctrl+Shift+Space".to_string(), 
+        "Control+Shift+Space".to_string(), 
         "Ctrl+Shift+C".to_string(), 
         "Control+Shift+C".to_string(), 
         "Alt+G".to_string(), 
@@ -37,11 +39,15 @@ pub fn register_dynamic(app_handle: &tauri::AppHandle, config: &crate::config::H
         "Ctrl+Shift+Right".to_string(),
     ];
     
-    let mut parsed_shortcuts: Vec<Shortcut> = shortcuts_to_register
+    let mut unique_shortcuts = std::collections::HashSet::new();
+    let parsed_shortcuts: Vec<Shortcut> = shortcuts_to_register
         .into_iter()
         .filter(|s| !s.is_empty())
         .filter_map(|s| Shortcut::from_str(&s).ok())
+        .filter(|s| unique_shortcuts.insert(s.clone()))
         .collect();
+
+    println!("Registering global hotkeys: {:?}", parsed_shortcuts);
 
     // Use a clean slate for shortcuts
     let _ = app_handle.global_shortcut().unregister_all();
@@ -61,11 +67,27 @@ pub fn register_dynamic(app_handle: &tauri::AppHandle, config: &crate::config::H
                 false
             };
 
-            if matches_shortcut(&cfg.toggle_visibility) {
+            if matches_shortcut(&cfg.toggle_visibility) || shortcut_str == "Ctrl+Shift+Space" || shortcut_str == "Control+Shift+Space" {
                 if let Some(window) = app.get_webview_window("main") {
-                    if window.is_visible().unwrap_or(false) && window.is_focused().unwrap_or(false) {
+                    let is_visible = window.is_visible().unwrap_or(false);
+                    if is_visible && window.is_focused().unwrap_or(false) {
                         let _ = window.hide();
                     } else {
+                        // If window is "Ghosted" (0 opacity), restore opacity first
+                        let mut config = state.config.lock().unwrap();
+                        if config.ghost_mode {
+                            config.ghost_mode = false;
+                            let target_opacity = config.appearance.opacity;
+
+                            #[cfg(target_os = "windows")]
+                            if let Ok(hwnd_raw) = window.hwnd() {
+                                use windows::Win32::Foundation::HWND;
+                                let hwnd = HWND(hwnd_raw.0 as *mut _);
+                                let _ = crate::window::set_opacity(hwnd, target_opacity);
+                                let _ = crate::window::set_click_through(hwnd, false);
+                            }
+                        }
+                        
                         let _ = window.show();
                         let _ = window.set_focus();
                     }
@@ -82,6 +104,35 @@ pub fn register_dynamic(app_handle: &tauri::AppHandle, config: &crate::config::H
                 let _ = app.emit("hotkey", &cfg.new_session);
             } else {
                 match shortcut_str.as_str() {
+                    "Ctrl+Shift+C" | "Control+Shift+C" | "Alt+G" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let state = app.state::<AppState>();
+                            let mut config = state.config.lock().unwrap();
+                            let new_ghost = !config.ghost_mode;
+                            
+                            #[cfg(target_os = "windows")]
+                            {
+                                use windows::Win32::Foundation::HWND;
+                                if let Ok(hwnd_raw) = window.hwnd() {
+                                    let hwnd = HWND(hwnd_raw.0 as *mut _);
+                                    let _ = crate::window::set_click_through(hwnd, new_ghost);
+                                    let target_opacity = if new_ghost { 0.0 } else { config.appearance.opacity };
+                                    let _ = crate::window::set_opacity(hwnd, target_opacity);
+                                }
+                            }
+                            
+                            config.ghost_mode = new_ghost;
+                            let updated_cfg = config.clone();
+                            let _ = app.emit("hotkey", "Ctrl+Shift+C");
+                            
+                            if let Ok(dir) = app.path().app_data_dir() {
+                                let path = dir.join("config.json");
+                                if let Ok(json) = serde_json::to_string(&updated_cfg) {
+                                    let _ = std::fs::write(path, json);
+                                }
+                            }
+                        }
+                    }
                     s if s.contains("Up") => {
                         if let Some(window) = app.get_webview_window("main") {
                             if let Ok(pos) = window.outer_position() {
@@ -107,43 +158,6 @@ pub fn register_dynamic(app_handle: &tauri::AppHandle, config: &crate::config::H
                         if let Some(window) = app.get_webview_window("main") {
                             if let Ok(pos) = window.outer_position() {
                                 let _ = window.set_position(tauri::PhysicalPosition::new(pos.x + 40, pos.y));
-                            }
-                        }
-                    }
-                    "Ctrl+Shift+C" | "Control+Shift+C" | "Alt+G" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            let state = app.state::<AppState>();
-                            let mut config = state.config.lock().unwrap();
-                            let new_ghost = !config.ghost_mode;
-                            
-                            #[cfg(target_os = "windows")]
-                            {
-                                use windows::Win32::Foundation::HWND;
-                                if let Ok(hwnd_raw) = window.hwnd() {
-                                    let hwnd = HWND(hwnd_raw.0 as *mut _);
-                                    
-                                    // 1. Apply Click-through (Win32)
-                                    let _ = crate::window::set_click_through(hwnd, new_ghost);
-                                    
-                                    // 2. Apply Opacity (Win32)
-                                    let target_opacity = if new_ghost { 0.0 } else { config.appearance.opacity };
-                                    let _ = crate::window::set_opacity(hwnd, target_opacity);
-                                }
-                            }
-
-                            // 3. Update and Persist Config
-                            config.ghost_mode = new_ghost;
-                            let updated_cfg = config.clone();
-                            
-                            // Notify frontend to update UI state (icons, etc)
-                            let _ = app.emit("hotkey", "Ctrl+Shift+C");
-                            
-                            // 4. Save to Disk
-                            if let Ok(dir) = app.path().app_data_dir() {
-                                let path = dir.join("config.json");
-                                if let Ok(json) = serde_json::to_string(&updated_cfg) {
-                                    let _ = std::fs::write(path, json);
-                                }
                             }
                         }
                     }

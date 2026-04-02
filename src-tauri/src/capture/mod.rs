@@ -4,7 +4,6 @@ use screenshots::Screen;
 
 #[cfg(target_os = "windows")]
 use windows::{
-    Graphics::Imaging::SoftwareBitmap,
     Media::Ocr::OcrEngine,
     Storage::Streams::{DataWriter, InMemoryRandomAccessStream},
 };

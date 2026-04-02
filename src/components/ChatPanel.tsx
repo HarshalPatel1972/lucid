@@ -89,7 +89,7 @@ export function ChatPanel({
       {/* Header */}
       <div className="flex items-center px-6 py-4 border-b border-zinc-800 bg-zinc-920 select-none">
         <h2 className="text-lg font-semibold flex items-center gap-2">
-          <Bot className="text-blue-400" /> AI Assistant
+          <Bot className="text-emerald-400" /> AI Assistant
         </h2>
       </div>
 
@@ -107,12 +107,12 @@ export function ChatPanel({
             className={`flex gap-4 ${m.role === "user" ? "flex-row-reverse" : ""}`}
           >
             <div
-              className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${m.role === "user" ? "bg-blue-600" : "bg-zinc-800"}`}
+              className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${m.role === "user" ? "bg-emerald-600" : "bg-zinc-800"}`}
             >
               {m.role === "user" ? <User size={16} /> : <Bot size={16} />}
             </div>
             <div
-              className={`max-w-[75%] px-4 py-3 rounded-2xl whitespace-pre-wrap ${m.role === "user" ? "bg-blue-600 text-white" : "bg-zinc-800 text-zinc-200"}`}
+              className={`max-w-[75%] px-4 py-3 rounded-2xl whitespace-pre-wrap ${m.role === "user" ? "bg-emerald-600 text-white" : "bg-zinc-800 text-zinc-200"}`}
             >
               {renderContent(m.content)}
             </div>
@@ -183,7 +183,7 @@ export function ChatPanel({
           <button
             onClick={handleSend}
             disabled={loading || !input.trim()}
-            className="self-end p-3 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:hover:bg-blue-600 text-white transition-colors"
+            className="self-end p-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:hover:bg-emerald-600 text-white transition-colors"
           >
             <Send size={20} />
           </button>

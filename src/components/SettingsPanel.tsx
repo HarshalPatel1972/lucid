@@ -114,7 +114,7 @@ export function SettingsPanel({ onConfigChanged }: SettingsPanelProps) {
         <div className="flex-1" />
         <button
           onClick={saveConfig}
-          className="mt-auto flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white rounded-md py-2 px-4 transition-colors font-medium"
+          className="mt-auto flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-md py-2 px-4 transition-colors font-medium"
         >
           <Save size={16} /> {saving ? "Saving..." : "Save Settings"}
         </button>
@@ -125,7 +125,7 @@ export function SettingsPanel({ onConfigChanged }: SettingsPanelProps) {
         {activeTab === "api_keys" && (
           <div className="space-y-6 animate-in fade-in duration-200">
             <h3 className="text-2xl font-semibold mb-6 flex items-center gap-2">
-              <Key className="text-blue-500" /> AI Providers
+              <Key className="text-emerald-500" /> AI Providers
             </h3>
 
             <InputField
@@ -188,7 +188,7 @@ export function SettingsPanel({ onConfigChanged }: SettingsPanelProps) {
                     appearance: { ...config.appearance, theme: e.target.value },
                   })
                 }
-                className="bg-zinc-900 border border-zinc-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 rounded-lg px-4 py-2.5 text-zinc-100 outline-none transition-all appearance-none"
+                className="bg-zinc-900 border border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 rounded-lg px-4 py-2.5 text-zinc-100 outline-none transition-all appearance-none"
               >
                 <option value="system">System</option>
                 <option value="dark">Dark</option>
@@ -211,7 +211,7 @@ export function SettingsPanel({ onConfigChanged }: SettingsPanelProps) {
                     },
                   })
                 }
-                className="bg-zinc-900 border border-zinc-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 rounded-lg px-4 py-2.5 text-zinc-100 outline-none transition-all appearance-none"
+                className="bg-zinc-900 border border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 rounded-lg px-4 py-2.5 text-zinc-100 outline-none transition-all appearance-none"
               >
                 <option value="sans-serif">System Sans</option>
                 <option value="serif">Serif</option>
@@ -249,7 +249,7 @@ export function SettingsPanel({ onConfigChanged }: SettingsPanelProps) {
                     await invoke("set_opacity", { opacity: newOpacity });
                   } catch (e) {}
                 }}
-                className="w-full accent-blue-500"
+                className="w-full accent-emerald-500"
               />
             </div>
           </div>
@@ -379,7 +379,7 @@ export function SettingsPanel({ onConfigChanged }: SettingsPanelProps) {
         {activeTab === "ai" && (
           <div className="space-y-6 animate-in fade-in duration-200">
             <h3 className="text-2xl font-semibold mb-6 flex items-center gap-2">
-              <MessageSquare className="text-blue-500" /> AI Persona & Formatting
+              <MessageSquare className="text-emerald-500" /> AI Persona & Formatting
             </h3>
             <div className="flex flex-col gap-1.5 ring-1 ring-zinc-800 bg-zinc-900/50 p-6 rounded-2xl border border-zinc-800">
               <label className="text-sm font-medium text-zinc-100 mb-2">Pre-prompt Structure (System Instructions)</label>
@@ -387,7 +387,7 @@ export function SettingsPanel({ onConfigChanged }: SettingsPanelProps) {
                 value={config.session_prompt || ""}
                 onChange={(e) => setConfig({ ...config, session_prompt: e.target.value })}
                 placeholder="e.g. Always respond in JSON format, or: Act as a master coder..."
-                className="bg-zinc-950 border border-zinc-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 rounded-xl px-4 py-3 text-zinc-100 outline-none transition-all h-64 font-mono text-sm resize-none"
+                className="bg-zinc-950 border border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 rounded-xl px-4 py-3 text-zinc-100 outline-none transition-all h-64 font-mono text-sm resize-none"
               />
               <p className="text-xs text-zinc-500 mt-4 leading-relaxed">
                 This prompt acts as a "System Message" for the AI. Whatever you define here will force the AI to respond in your preferred format and personality across all your conversations.
@@ -411,7 +411,7 @@ function TabButton({ id, label, icon: Icon, active, set }: any) {
           : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200"
       }`}
     >
-      <Icon size={18} className={isActive ? "text-blue-400" : ""} /> {label}
+      <Icon size={18} className={isActive ? "text-emerald-400" : ""} /> {label}
     </button>
   );
 }
@@ -431,7 +431,7 @@ function InputField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="bg-zinc-900 border border-zinc-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 rounded-lg px-4 py-2.5 text-zinc-100 outline-none transition-all"
+        className="bg-zinc-900 border border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 rounded-lg px-4 py-2.5 text-zinc-100 outline-none transition-all"
       />
     </div>
   );

@@ -5,7 +5,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { SnipOverlay } from "./components/SnipOverlay";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { ChatPanel } from "./components/ChatPanel";
-import { Settings, MessageSquare, Minus, X } from "lucide-react";
+import { Settings, MessageSquare, Minus, X, GripVertical } from "lucide-react";
 import { Toaster, toast } from "react-hot-toast";
 
 export default function App() {
@@ -83,8 +83,7 @@ export default function App() {
         } else if (key === config.hotkeys.capture_full) {
           try {
             // Full Capture requires a quick app hide
-            const win = getCurrentWindow();
-            await win.setOpacity(0.0);
+            await invoke("set_opacity", { opacity: 0.0 });
             await new Promise(r => setTimeout(r, 150));
             
             const base64 = await invoke("capture_full", { displayIdx: 0 });
@@ -92,9 +91,9 @@ export default function App() {
             setView("chat");
 
             // Restore from config
-            const appConfig: any = await invoke("get_config");
-            const targetOpacity = appConfig?.appearance?.opacity ?? 1.0;
-            await win.setOpacity(targetOpacity);
+            const latestConfig: any = await invoke("get_config");
+            const targetOpacity = latestConfig?.appearance?.opacity ?? 1.0;
+            await invoke("set_opacity", { opacity: targetOpacity });
           } catch (e) {
             console.error("Full capture failed", e);
           }
@@ -134,34 +133,29 @@ export default function App() {
         fontFamily: fontFamilyValue,
       }}
     >
-      <Toaster
-        position="bottom-right"
-        toastOptions={{
-          style: {
-            background: "#18181b",
-            color: "#fff",
-            border: "1px solid #27272a",
-          },
-        }}
-      />
-      
       {/* Titlebar: Hidden when snipping to show the screen below */}
       <div
-        className={`h-8 flex-shrink-0 border-b flex justify-between items-center select-none transition-opacity duration-200 ${isSnipping ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+        data-tauri-drag-region
+        onMouseDown={async (e) => {
+          if (e.buttons === 1) {
+            try { await invoke("start_drag"); } catch (e) {}
+          }
+        }}
+        className={`h-8 flex-shrink-0 border-b bg-zinc-900 flex justify-between items-center select-none transition-opacity duration-200 ${isSnipping ? "opacity-0 pointer-events-none" : "opacity-100"}`}
         style={{ borderColor: `rgba(39, 39, 42, ${currentOpacity})` }}
       >
         <div
           data-tauri-drag-region
-          className="flex items-center gap-2 px-4 h-full flex-1 cursor-grab"
+          className="flex items-center gap-2 px-4 h-full flex-1"
         >
-          <div className="w-4 h-4 bg-blue-600 rounded flex items-center justify-center text-[10px] font-bold text-white pointer-events-none">
+          <div data-tauri-drag-region className="w-4 h-4 bg-emerald-600 rounded flex items-center justify-center text-[10px] font-bold text-white">
             L
           </div>
-          <span className="text-xs font-semibold text-zinc-400 pointer-events-none">
+          <span data-tauri-drag-region className="text-xs font-semibold text-zinc-400">
             Lucid
           </span>
         </div>
-        <div className="flex h-full" style={{ WebkitAppRegion: "no-drag" } as any}>
+        <div className="flex h-full">
           <button
             className="w-11 h-full flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-white"
             onClick={async () => await getCurrentWindow().minimize()}
@@ -191,17 +185,31 @@ export default function App() {
         <div className={`flex flex-1 overflow-hidden transition-opacity duration-200 ${isSnipping ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
           <div className="w-14 flex flex-col items-center py-4 border-r border-zinc-800 bg-zinc-900 gap-6 shrink-0 z-10">
             <button
-               className={`p-2.5 rounded-xl ${view === "chat" ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"}`}
+               className={`p-2.5 rounded-xl ${view === "chat" ? "bg-emerald-600 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"}`}
                onClick={() => setView("chat")}
             >
               <MessageSquare size={22} />
             </button>
             <button
-               className={`p-2.5 rounded-xl ${view === "settings" ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"}`}
+               className={`p-2.5 rounded-xl ${view === "settings" ? "bg-emerald-600 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"}`}
                onClick={() => setView("settings")}
             >
               <Settings size={22} />
             </button>
+            
+            {/* Dedicated Drag Handle */}
+            <div
+              data-tauri-drag-region
+              onMouseDown={async (e) => {
+                if (e.buttons === 1) {
+                  try { await invoke("start_drag"); } catch (e) {}
+                }
+              }}
+              className="p-2.5 rounded-xl text-zinc-500 hover:text-emerald-400 bg-zinc-800/10 hover:bg-zinc-800/30 cursor-default transition-colors mt-2"
+              title="Drag App"
+            >
+              <GripVertical size={22} />
+            </div>
             <div className="flex-1" />
             
             {/* Opacity Slider */}
@@ -228,7 +236,7 @@ export default function App() {
                   style={{ height: '20px', marginTop: '10px' }}
                 />
                 <div 
-                   className="absolute bottom-0 left-0 right-0 bg-blue-500/80 rounded-b-xl"
+                   className="absolute bottom-0 left-0 right-0 bg-emerald-500/80 rounded-b-xl"
                    style={{ height: `${currentOpacity * 100}%` }}
                 />
               </div>
@@ -263,6 +271,16 @@ export default function App() {
           />
         )}
       </div>
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          style: {
+            background: "#18181b",
+            color: "#fff",
+            border: "1px solid #27272a",
+          },
+        }}
+      />
     </div>
   );
 }
