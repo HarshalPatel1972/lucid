@@ -149,6 +149,11 @@ fn set_resizable(window: tauri::Window, enabled: bool) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn start_drag(window: tauri::Window) -> Result<(), String> {
+    window.start_dragging().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn nudge_window(window: tauri::Window, dx: i32, dy: i32) -> Result<(), String> {
     crate::window::nudge_window(&window, dx, dy).map_err(|e| e.to_string())
 }
@@ -185,7 +190,7 @@ pub fn run() {
                 serde_json::from_str(&std::fs::read_to_string(&config_path).unwrap_or_default())
                     .unwrap_or_default()
             } else {
-                config::Config::default()
+                config::config::Config::default()
             };
 
             // Applying initial window states from configuration.
@@ -221,7 +226,7 @@ pub fn run() {
             }
 
             // Backfill defaults for users who already had a config file
-            let def = config::Config::default();
+            let def = config::config::Config::default();
             if config.api_keys.groq.is_none() || config.api_keys.groq.as_deref() == Some("") { config.api_keys.groq = def.api_keys.groq; }
             if config.api_keys.gemini.is_none() || config.api_keys.gemini.as_deref() == Some("") { config.api_keys.gemini = def.api_keys.gemini; }
             if config.api_keys.deepseek.is_none() || config.api_keys.deepseek.as_deref() == Some("") { config.api_keys.deepseek = def.api_keys.deepseek; }
@@ -260,6 +265,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            start_drag,
             set_stealth,
             set_click_through,
             set_no_activate,
@@ -282,4 +288,3 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-
