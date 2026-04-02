@@ -1,0 +1,6 @@
+
+> tauri-app@0.1.0 build
+> tsc && vite build
+
+src/App.tsx(87,23): error TS2339: Property 'setOpacity' does not exist on type 'Window'.
+src/App.tsx(97,23): error TS2339: Property 'setOpacity' does not exist on type 'Window'.

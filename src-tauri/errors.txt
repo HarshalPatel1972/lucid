@@ -1,0 +1,56 @@
+    Checking lucid v0.1.0 (C:\Users\Harshal Patel\Desktop\Project Elrond\lucid\src-tauri)
+error[E0255]: the name `__cmd__set_click_through` is defined multiple times
+  --> src\lib.rs:83:8
+   |
+82 | #[tauri::command]
+   | ----------------- previous definition of the macro `__cmd__set_click_through` here
+83 | pub fn set_click_through(window: tauri::Window, enabled: bool) -> Result<(), String> {
+   |        ^^^^^^^^^^^^^^^^^ `__cmd__set_click_through` reimported here
+   |
+   = note: `__cmd__set_click_through` must be defined only once in the macro namespace of this module
+
+error[E0255]: the name `__cmd__set_opacity` is defined multiple times
+   --> src\lib.rs:103:8
+    |
+102 | #[tauri::command]
+    | ----------------- previous definition of the macro `__cmd__set_opacity` here
+103 | pub fn set_opacity(window: tauri::Window, opacity: f64) -> Result<(), String> {
+    |        ^^^^^^^^^^^ `__cmd__set_opacity` reimported here
+    |
+    = note: `__cmd__set_opacity` must be defined only once in the macro namespace of this module
+
+warning: unused import: `Graphics::Imaging::SoftwareBitmap`
+ --> src\capture\mod.rs:7:5
+  |
+7 |     Graphics::Imaging::SoftwareBitmap,
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `tauri::Manager`
+ --> src\window\mod.rs:8:5
+  |
+8 | use tauri::Manager;
+  |     ^^^^^^^^^^^^^^
+
+warning: variable does not need to be mutable
+  --> src\hotkeys\mod.rs:24:9
+   |
+24 |     let mut shortcuts_to_register = vec![
+   |         ----^^^^^^^^^^^^^^^^^^^^^
+   |         |
+   |         help: remove this `mut`
+   |
+   = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+  --> src\hotkeys\mod.rs:40:9
+   |
+40 |     let mut parsed_shortcuts: Vec<Shortcut> = shortcuts_to_register
+   |         ----^^^^^^^^^^^^^^^^
+   |         |
+   |         help: remove this `mut`
+
+For more information about this error, try `rustc --explain E0255`.
+warning: `lucid` (lib) generated 4 warnings
+error: could not compile `lucid` (lib) due to 2 previous errors; 4 warnings emitted
