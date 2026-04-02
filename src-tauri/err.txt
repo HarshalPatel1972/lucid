@@ -1,0 +1,10 @@
+   Compiling schemars v0.8.22
+    Checking windows v0.61.3
+    Checking tauri-utils v2.8.3
+   Compiling tauri-build v2.5.6
+   Compiling tauri-plugin v2.5.4
+   Compiling tauri-codegen v2.5.5
+   Compiling tauri v2.10.3
+   Compiling tauri-plugin-opener v2.5.3
+   Compiling tauri-macros v2.5.5
+   Compiling lucid v0.1.0 (C:\Users\Harshal Patel\Desktop\Project Elrond\lucid\src-tauri)
