@@ -1,21 +1,144 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Settings, Key, Monitor, Shield, Save, Keyboard, MessageSquare } from "lucide-react";
 import { toast } from "react-hot-toast";
 
 interface SettingsPanelProps {
   onConfigChanged?: () => void;
 }
 
-export function SettingsPanel({ onConfigChanged }: SettingsPanelProps) {
+// ── SVG Icons ──────────────────────────────────────────────────
+const SaveIcon = () => (
+  <svg viewBox="0 0 13 13" fill="none">
+    <path d="M2 2h7l2 2v7a1 1 0 01-1 1H2a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.2"/>
+    <path d="M4 1v3h5V1M4 8h5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+  </svg>
+);
+
+const EyeIcon = () => (
+  <svg viewBox="0 0 13 13" fill="none">
+    <path d="M1 6.5C2.5 3.5 4.5 2 6.5 2s4 1.5 5.5 4.5C10.5 9.5 8.5 11 6.5 11S2.5 9.5 1 6.5z" stroke="currentColor" strokeWidth="1.1"/>
+    <circle cx="6.5" cy="6.5" r="1.5" stroke="currentColor" strokeWidth="1.1"/>
+  </svg>
+);
+
+const EyeOffIcon = () => (
+  <svg viewBox="0 0 13 13" fill="none">
+    <path d="M1.5 1.5l10 10M5 4A5.5 5.5 0 0112 6.5c-.6 1-1.5 2-2.5 2.5M4 9.5A7 7 0 011 6.5c.8-1.5 2-3 3.5-3.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/>
+  </svg>
+);
+
+// ── Sub-components ─────────────────────────────────────────────
+function Toggle({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label className="toggle">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <div className="toggle-bg" />
+      <div className="toggle-thumb" />
+    </label>
+  );
+}
+
+function ApiKeyField({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="srow">
+      <div className="srow-left">
+        <p className="srow-label">{label}</p>
+      </div>
+      <div className="srow-control">
+        <input
+          type={show ? "text" : "password"}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder ?? "Paste your key…"}
+          className="s-input"
+          spellCheck={false}
+          autoComplete="off"
+        />
+        <button className="eye-btn" onClick={() => setShow((s) => !s)} title={show ? "Hide" : "Show"}>
+          {show ? <EyeOffIcon /> : <EyeIcon />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function HotkeyCapture({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [recording, setRecording] = useState(false);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    e.preventDefault();
+    const mod = e.key === "Shift" || e.key === "Control" || e.key === "Alt" || e.key === "Meta";
+    if (mod) return;
+    const parts: string[] = [];
+    if (e.ctrlKey || e.metaKey) parts.push("CommandOrControl");
+    if (e.altKey) parts.push("Alt");
+    if (e.shiftKey) parts.push("Shift");
+    let k = e.key === " " ? "Space" : e.key.length === 1 ? e.key.toUpperCase() : e.key;
+    parts.push(k);
+    onChange(parts.join("+"));
+    setRecording(false);
+  };
+
+  return (
+    <div className="srow">
+      <div className="srow-left">
+        <p className="srow-label">{label}</p>
+      </div>
+      <div className="srow-control">
+        <input
+          type="text"
+          value={recording ? "Press keys…" : value}
+          onFocus={() => setRecording(true)}
+          onBlur={() => setRecording(false)}
+          onKeyDown={recording ? handleKeyDown : undefined}
+          readOnly
+          className={`hotkey-input${recording ? " recording" : ""}`}
+          title="Click and press keys to record shortcut"
+        />
+      </div>
+    </div>
+  );
+}
+
+// ── Main Component ─────────────────────────────────────────────
+export const SettingsPanel = memo(function SettingsPanel({
+  onConfigChanged,
+}: SettingsPanelProps) {
   const [config, setConfig] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState("api_keys");
+  const [activeTab, setActiveTab] = useState<"api" | "appearance" | "privacy" | "hotkeys">("api");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    invoke("get_config")
-      .then(setConfig as any)
-      .catch(console.error);
+    invoke("get_config").then(setConfig as any).catch(console.error);
   }, []);
 
   const saveConfig = async () => {
@@ -24,459 +147,310 @@ export function SettingsPanel({ onConfigChanged }: SettingsPanelProps) {
       await invoke("save_config", { config });
       if (onConfigChanged) onConfigChanged();
 
-      // Live reload opacity
-      if (config.appearance && config.appearance.opacity !== undefined) {
-        // Apply CSS variable
+      const nativeOps: Promise<unknown>[] = [];
+      if (config.appearance?.opacity !== undefined) {
         document.documentElement.style.setProperty(
           "--app-opacity",
-          config.appearance.opacity.toString(),
+          config.appearance.opacity.toString()
         );
-        // Apply to native window wrapper
-        try {
-          await invoke("set_opacity", { opacity: config.appearance.opacity });
-        } catch (e) {
-          console.error("Window opacity set failed:", e);
-        }
+        nativeOps.push(
+          invoke("set_opacity", { opacity: config.appearance.opacity }).catch(console.error)
+        );
       }
-
-      // Apply native Ghost Mode toggle
-      try {
-        await invoke("set_click_through", { enabled: config.ghost_mode });
-      } catch (e) {
-        console.error("Window click-through set failed:", e);
-      }
-
-      // Apply native Stealth toggle
-      try {
-        await invoke("set_stealth", { enabled: config.stealth_on_launch });
-      } catch (e) {
-        console.error("Window stealth set failed:", e);
-      }
-
-      toast.success("Settings saved successfully");
+      nativeOps.push(
+        invoke("set_click_through", { enabled: config.ghost_mode }).catch(console.error),
+        invoke("set_stealth", { enabled: config.stealth_on_launch }).catch(console.error)
+      );
+      await Promise.all(nativeOps);
+      toast.success("Settings saved");
     } catch (e: any) {
-      console.error(e);
-      toast.error(`Failed to save settings: ${e.toString()}`);
+      toast.error(`Save failed: ${e}`);
     } finally {
       setSaving(false);
     }
   };
 
-  if (!config)
+  if (!config) {
     return (
-      <div className="flex items-center justify-center h-full text-zinc-400">
-        Loading...
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-3)", fontSize: 12 }}>
+        Loading…
       </div>
     );
+  }
+
+  const patch = (partial: any) => setConfig((c: any) => ({ ...c, ...partial }));
+  const patchAppearance = (partial: any) => setConfig((c: any) => ({ ...c, appearance: { ...c.appearance, ...partial } }));
+  const patchHotkeys = (partial: any) => setConfig((c: any) => ({ ...c, hotkeys: { ...c.hotkeys, ...partial } }));
+  const patchApiKeys = (partial: any) => setConfig((c: any) => ({ ...c, api_keys: { ...c.api_keys, ...partial } }));
+
+  const TABS = [
+    { id: "api" as const, label: "API Keys" },
+    { id: "appearance" as const, label: "Appearance" },
+    { id: "privacy" as const, label: "Privacy" },
+    { id: "hotkeys" as const, label: "Hotkeys" },
+  ];
 
   return (
-    <div className="flex h-full w-full bg-zinc-950 text-zinc-100 font-sans overflow-hidden">
-      {/* Sidebar */}
-      <div className="w-64 bg-zinc-920 border-r border-zinc-800 p-4 flex flex-col gap-2 select-none">
-        <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-zinc-100 pointer-events-none">
-          <Settings size={20} className="text-zinc-400" /> Settings
-        </h2>
-        <TabButton
-          id="api_keys"
-          label="API Keys"
-          icon={Key}
-          active={activeTab}
-          set={setActiveTab}
-        />
-        <TabButton
-          id="general"
-          label="General"
-          icon={Monitor}
-          active={activeTab}
-          set={setActiveTab}
-        />
-        <TabButton
-          id="stealth"
-          label="Stealth & Ghost"
-          icon={Shield}
-          active={activeTab}
-          set={setActiveTab}
-        />
-        <TabButton
-          id="shortcuts"
-          label="Hotkeys"
-          icon={Keyboard}
-          active={activeTab}
-          set={setActiveTab}
-        />
-        <TabButton
-          id="ai"
-          label="AI Persona"
-          icon={MessageSquare}
-          active={activeTab}
-          set={setActiveTab}
-        />
-        <div className="flex-1" />
-        <button
-          onClick={saveConfig}
-          className="mt-auto flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-md py-2 px-4 transition-colors font-medium"
-        >
-          <Save size={16} /> {saving ? "Saving..." : "Save Settings"}
+    <div className="settings-root">
+      {/* Tabs */}
+      <div className="settings-tabs">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            className={`stab ${activeTab === t.id ? "active" : ""}`}
+            onClick={() => setActiveTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Body */}
+      <div className="settings-body">
+
+        {/* ── API Keys ── */}
+        {activeTab === "api" && (
+          <>
+            <div className="settings-section">
+              <p className="section-title">AI Providers</p>
+              <div className="settings-card">
+                <ApiKeyField
+                  label="Groq"
+                  value={config.api_keys.groq || ""}
+                  onChange={(v) => patchApiKeys({ groq: v })}
+                />
+                <ApiKeyField
+                  label="Gemini"
+                  value={config.api_keys.gemini || ""}
+                  onChange={(v) => patchApiKeys({ gemini: v })}
+                />
+                <ApiKeyField
+                  label="DeepSeek"
+                  value={config.api_keys.deepseek || ""}
+                  onChange={(v) => patchApiKeys({ deepseek: v })}
+                />
+                <ApiKeyField
+                  label="OpenRouter"
+                  value={config.api_keys.openrouter || ""}
+                  onChange={(v) => patchApiKeys({ openrouter: v })}
+                />
+                <ApiKeyField
+                  label="Claude (Anthropic)"
+                  value={config.api_keys.claude || ""}
+                  onChange={(v) => patchApiKeys({ claude: v })}
+                />
+              </div>
+            </div>
+
+            <div className="settings-section">
+              <p className="section-title">Primary Model</p>
+              <div className="settings-card">
+                <div className="srow">
+                  <div className="srow-left">
+                    <p className="srow-label">Selected Provider</p>
+                    <p className="srow-desc">
+                      Lucid will default to this provider. If it fails, it will attempt alternative providers.
+                    </p>
+                  </div>
+                  <div className="srow-control">
+                    <select
+                      value={config.provider_priority[0] || "groq"}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const newPriority = [
+                          val,
+                          ...config.provider_priority.filter((p: string) => p !== val),
+                        ];
+                        patch({ provider_priority: newPriority });
+                      }}
+                      className="s-select"
+                    >
+                      <option value="groq">Groq (Llama 3)</option>
+                      <option value="gemini">Gemini 2.5 Flash</option>
+                      <option value="deepseek">DeepSeek V3</option>
+                      <option value="openrouter">OpenRouter (Llama 4)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ── Appearance ── */}
+        {activeTab === "appearance" && (
+          <>
+            <div className="settings-section">
+              <p className="section-title">Display</p>
+              <div className="settings-card">
+                <div className="srow">
+                  <div className="srow-left">
+                    <p className="srow-label">Theme</p>
+                  </div>
+                  <div className="srow-control">
+                    <select
+                      value={config.appearance.theme || "system"}
+                      onChange={(e) => patchAppearance({ theme: e.target.value })}
+                      className="s-select"
+                    >
+                      <option value="system">System</option>
+                      <option value="dark">Dark</option>
+                      <option value="light">Light</option>
+                      <option value="dracula">Dracula</option>
+                      <option value="nord">Nord</option>
+                      <option value="gruvbox">Gruvbox</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="srow">
+                  <div className="srow-left">
+                    <p className="srow-label">Font</p>
+                  </div>
+                  <div className="srow-control">
+                    <select
+                      value={config.appearance.font_family || "sans-serif"}
+                      onChange={(e) => patchAppearance({ font_family: e.target.value })}
+                      className="s-select"
+                    >
+                      <option value="segoe-ui">Segoe UI (System)</option>
+                      <option value="sans-serif">System Sans</option>
+                      <option value="monospace">Monospace</option>
+                      <option value="'Inter', sans-serif">Inter</option>
+                      <option value="'Fira Code', monospace">Fira Code</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="srow">
+                  <div className="srow-left">
+                    <p className="srow-label">Window Opacity</p>
+                    <p className="srow-desc">Slide left to make the window more transparent</p>
+                  </div>
+                  <div className="srow-control" style={{ gap: 8 }}>
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="1.0"
+                      step="0.05"
+                      value={config.appearance.opacity ?? 1.0}
+                      onChange={async (e) => {
+                        const v = parseFloat(e.target.value);
+                        patchAppearance({ opacity: v });
+                        document.documentElement.style.setProperty("--app-opacity", v.toString());
+                        try { await invoke("set_opacity", { opacity: v }); } catch (_) {}
+                      }}
+                      className="s-range"
+                    />
+                    <span className="range-val">
+                      {Math.round((config.appearance.opacity ?? 1.0) * 100)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ── Privacy ── */}
+        {activeTab === "privacy" && (
+          <>
+            <div className="settings-section">
+              <p className="section-title">Window Visibility</p>
+              <div className="settings-card">
+                <div className="srow">
+                  <div className="srow-left">
+                    <p className="srow-label">Stealth on Launch</p>
+                    <p className="srow-desc">
+                      Hide window from screen capture and recording tools at startup
+                    </p>
+                  </div>
+                  <div className="srow-control">
+                    <Toggle
+                      checked={config.stealth_on_launch}
+                      onChange={(v) => patch({ stealth_on_launch: v })}
+                    />
+                  </div>
+                </div>
+
+                <div className="srow">
+                  <div className="srow-left">
+                    <p className="srow-label">Ghost Mode on Launch</p>
+                    <p className="srow-desc">
+                      Start with click-through enabled — mouse clicks pass through the window
+                    </p>
+                  </div>
+                  <div className="srow-control">
+                    <Toggle
+                      checked={config.ghost_mode}
+                      onChange={(v) => patch({ ghost_mode: v })}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ── Hotkeys ── */}
+        {activeTab === "hotkeys" && (
+          <>
+            <div className="settings-section">
+              <p className="section-title">Global Shortcuts</p>
+              <div className="settings-card">
+                <HotkeyCapture
+                  label="Toggle Visibility"
+                  value={config.hotkeys.toggle_visibility}
+                  onChange={(v) => patchHotkeys({ toggle_visibility: v })}
+                />
+                <HotkeyCapture
+                  label="Toggle Ghost Mode"
+                  value={config.hotkeys.toggle_click_through}
+                  onChange={(v) => patchHotkeys({ toggle_click_through: v })}
+                />
+                <HotkeyCapture
+                  label="Snip Region"
+                  value={config.hotkeys.snip_region}
+                  onChange={(v) => patchHotkeys({ snip_region: v })}
+                />
+                <HotkeyCapture
+                  label="Capture Full Screen"
+                  value={config.hotkeys.capture_full}
+                  onChange={(v) => patchHotkeys({ capture_full: v })}
+                />
+                <HotkeyCapture
+                  label="Focus Chat"
+                  value={config.hotkeys.focus_chat}
+                  onChange={(v) => patchHotkeys({ focus_chat: v })}
+                />
+                <HotkeyCapture
+                  label="New Session"
+                  value={config.hotkeys.new_session}
+                  onChange={(v) => patchHotkeys({ new_session: v })}
+                />
+              </div>
+            </div>
+            <div className="settings-section" style={{ marginTop: 0 }}>
+              <div className="settings-card">
+                <div className="srow">
+                  <p className="srow-desc" style={{ padding: 0 }}>
+                    Click a field, then press the desired key combination to record it.
+                    Win/Super key combinations are not supported by the OS.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="settings-footer">
+        <button onClick={saveConfig} disabled={saving} className="save-btn">
+          <SaveIcon />
+          {saving ? "Saving…" : "Save Settings"}
         </button>
       </div>
-
-      {/* Content */}
-      <div className="flex-1 p-8 overflow-y-auto">
-        {activeTab === "api_keys" && (
-          <div className="space-y-6 animate-in fade-in duration-200">
-            <h3 className="text-2xl font-semibold mb-6 flex items-center gap-2">
-              <Key className="text-emerald-500" /> AI Providers
-            </h3>
-
-            <InputField
-              label="Groq API Key"
-              value={config.api_keys.groq || ""}
-              onChange={(v: string) =>
-                setConfig({
-                  ...config,
-                  api_keys: { ...config.api_keys, groq: v },
-                })
-              }
-              type="password"
-            />
-            <InputField
-              label="Gemini API Key"
-              value={config.api_keys.gemini || ""}
-              onChange={(v: string) =>
-                setConfig({
-                  ...config,
-                  api_keys: { ...config.api_keys, gemini: v },
-                })
-              }
-              type="password"
-            />
-            <InputField
-              label="Claude API Key"
-              value={config.api_keys.claude || ""}
-              onChange={(v: string) =>
-                setConfig({
-                  ...config,
-                  api_keys: { ...config.api_keys, claude: v },
-                })
-              }
-              type="password"
-            />
-            <InputField
-              label="Ollama Model"
-              value={config.ollama_model || ""}
-              onChange={(v: string) =>
-                setConfig({ ...config, ollama_model: v })
-              }
-              placeholder="e.g., llama3"
-            />
-          </div>
-        )}
-
-        {activeTab === "general" && (
-          <div className="space-y-6 animate-in fade-in duration-200">
-            <h3 className="text-2xl font-semibold mb-6 flex items-center gap-2">
-              <Monitor className="text-emerald-500" /> General Settings
-            </h3>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-zinc-400">Theme</label>
-              <select
-                value={config.appearance.theme || "system"}
-                onChange={(e) =>
-                  setConfig({
-                    ...config,
-                    appearance: { ...config.appearance, theme: e.target.value },
-                  })
-                }
-                className="bg-zinc-900 border border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 rounded-lg px-4 py-2.5 text-zinc-100 outline-none transition-all appearance-none"
-              >
-                <option value="system">System</option>
-                <option value="dark">Dark</option>
-                <option value="light">Light</option>
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-zinc-400">
-                Font Family
-              </label>
-              <select
-                value={config.appearance.font_family || "sans-serif"}
-                onChange={(e) =>
-                  setConfig({
-                    ...config,
-                    appearance: {
-                      ...config.appearance,
-                      font_family: e.target.value,
-                    },
-                  })
-                }
-                className="bg-zinc-900 border border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 rounded-lg px-4 py-2.5 text-zinc-100 outline-none transition-all appearance-none"
-              >
-                <option value="sans-serif">System Sans</option>
-                <option value="serif">Serif</option>
-                <option value="monospace">Monospace</option>
-                <option value="'Inter', sans-serif">Inter</option>
-                <option value="'Fira Code', monospace">Fira Code</option>
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-zinc-400">
-                Window Opacity ({config.appearance.opacity || 1.0})
-              </label>
-              <input
-                type="range"
-                min="0.1"
-                max="1.0"
-                step="0.05"
-                value={config.appearance.opacity || 1.0}
-                onChange={async (e) => {
-                  const newOpacity = parseFloat(e.target.value);
-                  setConfig({
-                    ...config,
-                    appearance: {
-                      ...config.appearance,
-                      opacity: newOpacity,
-                    },
-                  });
-                  // Live reload
-                  document.documentElement.style.setProperty(
-                    "--app-opacity",
-                    newOpacity.toString(),
-                  );
-                  try {
-                    await invoke("set_opacity", { opacity: newOpacity });
-                  } catch (e) {}
-                }}
-                className="w-full accent-emerald-500"
-              />
-            </div>
-          </div>
-        )}
-
-        {activeTab === "shortcuts" && (
-          <div className="space-y-6 animate-in fade-in duration-200">
-            <h3 className="text-2xl font-semibold mb-6 flex items-center gap-2">
-              <Keyboard className="text-orange-500" /> Hotkeys
-            </h3>
-            <p className="text-sm text-zinc-400 mb-4">
-              Click to record a new global shortcut.
-            </p>
-
-            <HotkeyInput
-              label="Toggle Visibility"
-              value={config.hotkeys.toggle_visibility || ""}
-              onChange={(v: string) =>
-                setConfig({
-                  ...config,
-                  hotkeys: { ...config.hotkeys, toggle_visibility: v },
-                })
-              }
-              placeholder="e.g., CommandOrControl+Shift+Space"
-            />
-            <HotkeyInput
-              label="Toggle Ghost Mode (Click-Through)"
-              value={config.hotkeys.toggle_click_through || ""}
-              onChange={(v: string) =>
-                setConfig({
-                  ...config,
-                  hotkeys: { ...config.hotkeys, toggle_click_through: v },
-                })
-              }
-              placeholder="e.g., CommandOrControl+Shift+T"
-            />
-            <HotkeyInput
-              label="Focus Chat"
-              value={config.hotkeys.focus_chat || ""}
-              onChange={(v: string) =>
-                setConfig({
-                  ...config,
-                  hotkeys: { ...config.hotkeys, focus_chat: v },
-                })
-              }
-              placeholder="e.g., CommandOrControl+Shift+A"
-            />
-            <HotkeyInput
-              label="Snip Region"
-              value={config.hotkeys.snip_region || ""}
-              onChange={(v: string) =>
-                setConfig({
-                  ...config,
-                  hotkeys: { ...config.hotkeys, snip_region: v },
-                })
-              }
-              placeholder="e.g., CommandOrControl+Shift+S"
-            />
-            <HotkeyInput
-              label="New Session"
-              value={config.hotkeys.new_session || ""}
-              onChange={(v: string) =>
-                setConfig({
-                  ...config,
-                  hotkeys: { ...config.hotkeys, new_session: v },
-                })
-              }
-              placeholder="e.g., CommandOrControl+Shift+N"
-            />
-            <HotkeyInput
-              label="Capture Full Screen"
-              value={config.hotkeys.capture_full || ""}
-              onChange={(v: string) =>
-                setConfig({
-                  ...config,
-                  hotkeys: { ...config.hotkeys, capture_full: v },
-                })
-              }
-              placeholder="e.g., CommandOrControl+Shift+F"
-            />
-          </div>
-        )}
-
-        {activeTab === "stealth" && (
-          <div className="space-y-6 animate-in fade-in duration-200">
-            <h3 className="text-2xl font-semibold mb-6 flex items-center gap-2">
-              <Shield className="text-purple-500" /> Stealth & Ghost
-            </h3>
-            <div className="flex items-center justify-between p-4 bg-zinc-900 rounded-xl border border-zinc-800 shadow-sm">
-              <div>
-                <h4 className="font-medium text-zinc-100">Stealth On Launch</h4>
-                <p className="text-sm text-zinc-400">
-                  Make window completely invisible to screen capturing
-                  immediately upon startup.
-                </p>
-              </div>
-              <input
-                type="checkbox"
-                checked={config.stealth_on_launch}
-                onChange={(e) =>
-                  setConfig({ ...config, stealth_on_launch: e.target.checked })
-                }
-                className="w-5 h-5 accent-purple-500"
-              />
-            </div>
-            <div className="flex items-center justify-between p-4 bg-zinc-900 rounded-xl border border-zinc-800 shadow-sm">
-              <div>
-                <h4 className="font-medium text-zinc-100">
-                  Ghost Mode Defaults
-                </h4>
-                <p className="text-sm text-zinc-400">
-                  Enable click-through mode automatically.
-                </p>
-              </div>
-              <input
-                type="checkbox"
-                checked={config.ghost_mode}
-                onChange={(e) =>
-                  setConfig({ ...config, ghost_mode: e.target.checked })
-                }
-                className="w-5 h-5 accent-purple-500"
-              />
-            </div>
-          </div>
-        )}
-
-        {activeTab === "ai" && (
-          <div className="space-y-6 animate-in fade-in duration-200">
-            <h3 className="text-2xl font-semibold mb-6 flex items-center gap-2">
-              <MessageSquare className="text-emerald-500" /> AI Persona & Formatting
-            </h3>
-            <div className="flex flex-col gap-1.5 ring-1 ring-zinc-800 bg-zinc-900/50 p-6 rounded-2xl border border-zinc-800">
-              <label className="text-sm font-medium text-zinc-100 mb-2">Pre-prompt Structure (System Instructions)</label>
-              <textarea
-                value={config.session_prompt || ""}
-                onChange={(e) => setConfig({ ...config, session_prompt: e.target.value })}
-                placeholder="e.g. Always respond in JSON format, or: Act as a master coder..."
-                className="bg-zinc-950 border border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 rounded-xl px-4 py-3 text-zinc-100 outline-none transition-all h-64 font-mono text-sm resize-none"
-              />
-              <p className="text-xs text-zinc-500 mt-4 leading-relaxed">
-                This prompt acts as a "System Message" for the AI. Whatever you define here will force the AI to respond in your preferred format and personality across all your conversations.
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
-}
-
-function TabButton({ id, label, icon: Icon, active, set }: any) {
-  const isActive = active === id;
-  return (
-    <button
-      onClick={() => set(id)}
-      className={`flex items-center gap-3 w-full text-left px-3 py-2 rounded-lg transition-all ${
-        isActive
-          ? "bg-zinc-800 text-zinc-100 shadow-sm border border-zinc-700/50"
-          : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200"
-      }`}
-    >
-      <Icon size={18} className={isActive ? "text-emerald-400" : ""} /> {label}
-    </button>
-  );
-}
-
-function InputField({
-  label,
-  value,
-  onChange,
-  type = "text",
-  placeholder = "",
-}: any) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-sm font-medium text-zinc-400">{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="bg-zinc-900 border border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 rounded-lg px-4 py-2.5 text-zinc-100 outline-none transition-all"
-      />
-    </div>
-  );
-}
-function HotkeyInput({ label, value, onChange, placeholder }: any) {
-  const [recording, setRecording] = useState(false);
-
-  const handleKeyDown = (e: any) => {
-    e.preventDefault();
-    if (
-      e.key === "Shift" ||
-      e.key === "Control" ||
-      e.key === "Alt" ||
-      e.key === "Meta"
-    ) {
-      return;
-    }
-
-    let keys = [];
-    if (e.ctrlKey || e.metaKey) keys.push("CommandOrControl");
-    if (e.altKey) keys.push("Alt");
-    if (e.shiftKey) keys.push("Shift");
-
-    let key = e.key;
-    if (key === " ") key = "Space";
-    else if (key.length === 1) key = key.toUpperCase();
-
-    keys.push(key);
-    onChange(keys.join("+"));
-    setRecording(false);
-  };
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-sm font-medium text-zinc-400">{label}</label>
-      <input
-        type="text"
-        value={recording ? "Listening for keypress..." : value}
-        onFocus={() => setRecording(true)}
-        onBlur={() => setRecording(false)}
-        onKeyDown={recording ? handleKeyDown : undefined}
-        readOnly
-        placeholder={placeholder}
-        className={`bg-zinc-900 border ${recording ? "border-orange-500 ring-1 ring-orange-500" : "border-zinc-800"} rounded-lg px-4 py-2.5 text-zinc-100 outline-none transition-all cursor-pointer`}
-      />
-    </div>
-  );
-}
+});
