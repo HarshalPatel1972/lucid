@@ -1,5 +1,13 @@
 use serde::{Deserialize, Serialize};
 
+// ── Hardcoded free API keys (bundled defaults) ──────────────────
+// These are loaded when no config.json exists yet.
+// Users can override them in Settings at any time.
+const DEFAULT_GROQ_KEY: &str = "";
+const DEFAULT_GEMINI_KEY: &str = "";
+const DEFAULT_DEEPSEEK_KEY: &str = "";
+const DEFAULT_OPENROUTER_KEY: &str = "";
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub api_keys: ApiKeys,
@@ -17,6 +25,8 @@ pub struct ApiKeys {
     pub groq: Option<String>,
     pub gemini: Option<String>,
     pub claude: Option<String>,
+    pub deepseek: Option<String>,
+    pub openrouter: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -41,21 +51,26 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             api_keys: ApiKeys {
-                groq: None,
-                gemini: None,
-                claude: None,
+                groq: Some(DEFAULT_GROQ_KEY.to_string()),
+                gemini: Some(DEFAULT_GEMINI_KEY.to_string()),
+                claude: None, // no free Claude tier
+                deepseek: Some(DEFAULT_DEEPSEEK_KEY.to_string()),
+                openrouter: Some(DEFAULT_OPENROUTER_KEY.to_string()),
             },
+            // Circular fallback order: groq → gemini → deepseek → openrouter → back to groq
+            // Groq first: fastest inference, free llama-3.3-70b
             provider_priority: vec![
                 "groq".to_string(),
                 "gemini".to_string(),
-                "claude".to_string(),
+                "deepseek".to_string(),
+                "openrouter".to_string(),
                 "ollama".to_string(),
             ],
             ollama_model: "llama3".to_string(),
             session_prompt: None,
             hotkeys: HotkeyConfig {
                 toggle_visibility: "Ctrl+Shift+Space".to_string(),
-                toggle_click_through: "Ctrl+Shift+C".to_string(),
+                toggle_click_through: "Ctrl+Shift+T".to_string(),
                 snip_region: "Ctrl+Shift+S".to_string(),
                 capture_full: "Ctrl+Shift+F".to_string(),
                 focus_chat: "Ctrl+Shift+A".to_string(),
