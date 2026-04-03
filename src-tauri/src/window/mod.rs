@@ -5,6 +5,8 @@
 
 use anyhow::Result;
 
+// use tauri::Manager; // Unused at top level
+
 #[cfg(target_os = "windows")]
 use windows::Win32::{
     Foundation::{HWND, COLORREF},

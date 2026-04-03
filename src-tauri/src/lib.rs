@@ -6,6 +6,38 @@ pub mod hotkeys;
 pub mod window;
 pub mod tray;
 
+use std::sync::Arc;
+
+/// Build an ordered provider list matching config.provider_priority.
+fn build_router(config: &config::Config) -> ai::AiRouter {
+    let mut providers: Vec<Arc<dyn ai::AiProvider>> = Vec::new();
+    for name in &config.provider_priority {
+        let p: Arc<dyn ai::AiProvider> = match name.as_str() {
+            "groq" => Arc::new(ai::groq::GroqProvider::new(
+                config.api_keys.groq.clone().unwrap_or_default(),
+            )),
+            "gemini" => Arc::new(ai::gemini::GeminiProvider::new(
+                config.api_keys.gemini.clone().unwrap_or_default(),
+            )),
+            "claude" => Arc::new(ai::claude::ClaudeProvider::new(
+                config.api_keys.claude.clone().unwrap_or_default(),
+            )),
+            "deepseek" => Arc::new(ai::deepseek::DeepSeekProvider::new(
+                config.api_keys.deepseek.clone().unwrap_or_default(),
+            )),
+            "openrouter" => Arc::new(ai::openrouter::OpenRouterProvider::new(
+                config.api_keys.openrouter.clone().unwrap_or_default(),
+            )),
+            "ollama" => Arc::new(ai::ollama::OllamaProvider::new(
+                config.ollama_model.clone(),
+            )),
+            _ => continue,
+        };
+        providers.push(p);
+    }
+    ai::AiRouter::new(providers)
+}
+
 use std::sync::Mutex;
 use tauri::Manager;
 
@@ -41,16 +73,7 @@ fn get_config(state: tauri::State<'_, AppState>) -> Result<config::Config, Strin
 #[tauri::command]
 fn save_config(config: config::Config, state: tauri::State<'_, AppState>, app: tauri::AppHandle) -> Result<(), String> {
     *state.config.lock().unwrap() = config.clone();
-    
-    // Reconstruct AiRouter with updated API keys
-    use std::sync::Arc;
-    let providers: Vec<Arc<dyn ai::AiProvider>> = vec![
-        Arc::new(ai::groq::GroqProvider::new(config.api_keys.groq.clone().unwrap_or_default())),
-        Arc::new(ai::gemini::GeminiProvider::new(config.api_keys.gemini.clone().unwrap_or_default())),
-        Arc::new(ai::claude::ClaudeProvider::new(config.api_keys.claude.clone().unwrap_or_default())),
-        Arc::new(ai::ollama::OllamaProvider::new(config.ollama_model.clone())),
-    ];
-    *state.router.lock().unwrap() = ai::AiRouter::new(providers);
+    *state.router.lock().unwrap() = build_router(&config);
 
     let _ = hotkeys::register_dynamic(&app, &config.hotkeys);
     
@@ -110,11 +133,6 @@ fn set_opacity(window: tauri::Window, opacity: f64) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn start_drag(window: tauri::Window) -> Result<(), String> {
-    window.start_dragging().map_err(|e| e.to_string())
-}
-
-#[tauri::command]
 fn nudge_window(window: tauri::Window, dx: i32, dy: i32) -> Result<(), String> {
     crate::window::nudge_window(&window, dx, dy).map_err(|e| e.to_string())
 }
@@ -129,6 +147,16 @@ fn restore_position(window: tauri::Window, app: tauri::AppHandle) -> Result<(), 
     crate::window::restore_position(&window, &app).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn minimize_window(window: tauri::Window) {
+    let _ = window.minimize();
+}
+
+#[tauri::command]
+fn close_window(window: tauri::Window) {
+    let _ = window.close();
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -137,59 +165,59 @@ pub fn run() {
         .setup(|app| {
             let app_data_dir = app.path().app_data_dir().unwrap_or_default();
             let config_path = app_data_dir.join("config.json");
-            let config = if config_path.exists() {
+            let mut config = if config_path.exists() {
                 serde_json::from_str(&std::fs::read_to_string(&config_path).unwrap_or_default())
                     .unwrap_or_default()
             } else {
                 config::Config::default()
             };
 
-            use std::sync::Arc;
-            let providers: Vec<Arc<dyn ai::AiProvider>> = vec![
-                Arc::new(ai::groq::GroqProvider::new(config.api_keys.groq.clone().unwrap_or_default())),
-                Arc::new(ai::gemini::GeminiProvider::new(config.api_keys.gemini.clone().unwrap_or_default())),
-                Arc::new(ai::claude::ClaudeProvider::new(config.api_keys.claude.clone().unwrap_or_default())),
-                Arc::new(ai::ollama::OllamaProvider::new(config.ollama_model.clone())),
-            ];
+            // Backfill defaults for users who already had a config file
+            let def = config::Config::default();
+            if config.api_keys.groq.is_none() || config.api_keys.groq.as_deref() == Some("") { config.api_keys.groq = def.api_keys.groq; }
+            if config.api_keys.gemini.is_none() || config.api_keys.gemini.as_deref() == Some("") { config.api_keys.gemini = def.api_keys.gemini; }
+            if config.api_keys.deepseek.is_none() || config.api_keys.deepseek.as_deref() == Some("") { config.api_keys.deepseek = def.api_keys.deepseek; }
+            if config.api_keys.openrouter.is_none() || config.api_keys.openrouter.as_deref() == Some("") { config.api_keys.openrouter = def.api_keys.openrouter; }
+            
+            // Remove ollama from fallback
+            config.provider_priority.retain(|p| p != "ollama");
 
+            // Ensure all new defaults are present in priority
+            for p in ["groq", "gemini", "deepseek", "openrouter"] {
+                if !config.provider_priority.contains(&p.to_string()) {
+                    config.provider_priority.push(p.to_string());
+                }
+            }
+
+            let router = build_router(&config);
             app.manage(AppState {
                 config: Mutex::new(config),
-                router: Mutex::new(ai::AiRouter::new(providers)),
+                router: Mutex::new(router),
             });
 
             hotkeys::register(app).expect("failed to register hotkeys");
             let _ = tray::setup(app);
-
-            // Resize and Center Window to 85% of screen
-            let app_handle = app.handle();
-            if let Some(window) = app_handle.get_webview_window("main") {
-                if let Some(monitor) = window.current_monitor().ok().flatten() {
-                    let size = monitor.size();
-                    let w = (size.width as f64 * 0.85) as u32;
-                    let h = (size.height as f64 * 0.85) as u32;
-                    let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize { width: w, height: h }));
-                    let _ = window.center();
-                }
-            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            start_drag,
             set_stealth,
             set_click_through,
             set_opacity,
             nudge_window,
             save_position,
             restore_position,
+            minimize_window,
+            close_window,
+            save_config,
+            get_config,
             crate::ghost::set_ghost_mode,
             crate::capture::capture_full,
             crate::capture::capture_region,
             crate::capture::ocr_region,
             ai_complete,
-            ai_transcribe,
-            get_config,
-            save_config
+            ai_transcribe
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
