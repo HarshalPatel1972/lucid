@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/tauri-apps/tauri/dev/app-icon.png" alt="Lucid Logo" width="120" />
+  <img src="public/logo.png" alt="Lucid Logo" width="120" style="border-radius: 20px;" />
   <h1>Lucid</h1>
   <p><strong>A lightning-fast, highly stealthy Desktop AI Assistant built for power users.</strong></p>
   <p>
