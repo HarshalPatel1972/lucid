@@ -1,60 +1,41 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { SnipOverlay } from "./components/SnipOverlay";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { ChatPanel } from "./components/ChatPanel";
-import { Settings, MessageSquare, Minus, X, GripVertical } from "lucide-react";
+import { VaultPanel } from "./components/VaultPanel";
 import { Toaster, toast } from "react-hot-toast";
 
 export default function App() {
   const [isSnipping, setIsSnipping] = useState(false);
-  const [view, setView] = useState<"chat" | "settings">("chat");
+  const [view, setView] = useState<"chat" | "settings" | "vault">("chat");
   const [sessionKey, setSessionKey] = useState(0);
   const [pendingSnip, setPendingSnip] = useState<{
     type: "ocr" | "vision";
     data: string;
   } | null>(null);
   const [appConfig, setAppConfig] = useState<any>(null);
+  const configRef = useRef<any>(null);
 
-  const viewRef = useRef(view);
-  useEffect(() => {
-    viewRef.current = view;
-  }, [view]);
-
-  // Phase 12: App Initialization & Startup Hooks
   useEffect(() => {
     async function initApp() {
       try {
         const config: any = await invoke("get_config");
+        configRef.current = config;
         setAppConfig(config);
         if (config?.appearance?.theme) {
-          document.documentElement.setAttribute(
-            "data-theme",
-            config.appearance.theme,
-          );
+          document.documentElement.setAttribute("data-theme", config.appearance.theme);
           document.documentElement.className = config.appearance.theme;
         }
-
-        // Apply Appearance Opacity (Startup Only)
-        if (config.appearance && config.appearance.opacity !== undefined) {
-          document.documentElement.style.setProperty(
-            "--app-opacity",
-            config.appearance.opacity.toString(),
-          );
-          try {
-            await invoke("set_opacity", { opacity: config.appearance.opacity });
-          } catch (e) {}
+        if (config.appearance?.opacity !== undefined) {
+          document.documentElement.style.setProperty("--app-opacity", config.appearance.opacity.toString());
+          try { await invoke("set_opacity", { opacity: config.appearance.opacity }); } catch (_) {}
         }
-
-        // Apply startup Ghost Mode settings
-        if (config.stealth_on_launch) {
-          await invoke("set_stealth", { enabled: true });
-        }
-        if (config.ghost_mode) {
-          await invoke("set_click_through", { enabled: true });
-        }
+        const tasks: Promise<unknown>[] = [];
+        if (config.stealth_on_launch) tasks.push(invoke("set_stealth", { enabled: true }));
+        if (config.ghost_mode) tasks.push(invoke("set_click_through", { enabled: true }));
+        await Promise.all(tasks);
       } catch (err) {
         console.error("Failed to initialize app config", err);
       }
@@ -63,224 +44,181 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    // Listen to global hotkeys configured via backend and forwarded via "hotkey" event
     const unlisten = listen<string>("hotkey", async (event) => {
-      try {
-        const config: any = await invoke("get_config");
-        const key = event.payload;
+      const config = configRef.current;
+      if (!config) return;
+      const key = event.payload;
 
-        if (key === config.hotkeys.snip_region) {
-          // Starting snip: only make internal background transparent (CSS only)
-          // NEVER use set_opacity(0.0) on the whole window, it loses focus!
-          setIsSnipping(true);
-        } else if (key === config.hotkeys.focus_chat) {
+      if (key === config.hotkeys.snip_region) {
+        setIsSnipping(true);
+      } else if (key === config.hotkeys.focus_chat) {
+        setView("chat");
+      } else if (key === config.hotkeys.new_session) {
+        setView("chat");
+        setSessionKey((k) => k + 1);
+      } else if (key === config.hotkeys.capture_full) {
+        try {
+          const base64 = await invoke("capture_full");
+          setPendingSnip({ type: "vision", data: base64 as string });
           setView("chat");
-          const win = getCurrentWindow();
-          await win.setFocus();
-        } else if (key === config.hotkeys.new_session) {
-          setView("chat");
-          setSessionKey((k) => k + 1);
-        } else if (key === config.hotkeys.capture_full) {
-          try {
-            // Full Capture requires a quick app hide
-            await invoke("set_opacity", { opacity: 0.0 });
-            await new Promise(r => setTimeout(r, 150));
-            
-            const base64 = await invoke("capture_full", { displayIdx: 0 });
-            setPendingSnip({ type: "vision", data: base64 as string });
-            setView("chat");
-
-            // Restore from config
-            const latestConfig: any = await invoke("get_config");
-            const targetOpacity = latestConfig?.appearance?.opacity ?? 1.0;
-            await invoke("set_opacity", { opacity: targetOpacity });
-          } catch (e) {
-            console.error("Full capture failed", e);
-          }
-        } else if (key === config.hotkeys.toggle_click_through || key === "Ctrl+Shift+C" || key === "Control+Shift+C" || key === "Alt+G") {
-          const freshConfig: any = await invoke("get_config");
-          setAppConfig(freshConfig);
-          const isEnabled = freshConfig.ghost_mode;
-          
-          toast(
-             isEnabled ? "Ghost Mode: ACTIVE (Invisible + Click-through)" : "Ghost Mode: OFF (Restored)",
-             { 
-               icon: isEnabled ? "👻" : "👁️",
-               style: { background: "#18181b", color: "#fff" }
-             }
-          );
+        } catch (e) {
+          console.error("Full capture failed", e);
         }
-      } catch (err) {
-        console.error("Failed handling hotkey", err);
+      } else if (key === config.hotkeys.toggle_click_through) {
+        const newGhostMode = !config.ghost_mode;
+        try {
+          const updatedConfig = { ...config, ghost_mode: newGhostMode };
+          await Promise.all([
+            invoke("set_click_through", { enabled: newGhostMode }),
+            invoke("save_config", { config: updatedConfig }),
+          ]);
+          configRef.current = updatedConfig;
+          setAppConfig(updatedConfig);
+          toast(newGhostMode ? "Ghost mode enabled" : "Ghost mode disabled", {
+            icon: newGhostMode ? "👻" : "👁",
+            style: {
+              background: "#0e0e10",
+              color: "#fafafa",
+              border: "1px solid rgba(255,255,255,0.07)",
+              fontSize: "12px",
+            },
+          });
+        } catch (e) {
+          console.error("Failed toggling click-through", e);
+        }
       }
     });
-
-    return () => {
-      unlisten.then((f) => f());
-    };
+    return () => { unlisten.then((f) => f()); };
   }, []);
 
-  const currentOpacity = appConfig?.appearance?.opacity ?? 1.0;
-  const fontFamilyValue = appConfig?.appearance?.font_family || "sans-serif";
+  const fontFamily = useMemo(() => {
+    const f = appConfig?.appearance?.font_family;
+    if (!f || f === "sans-serif" || f === "segoe-ui") return "inherit";
+    return f;
+  }, [appConfig]);
+
+  const handleConfigChanged = useCallback(async () => {
+    const config: any = await invoke("get_config");
+    configRef.current = config;
+    setAppConfig(config);
+    if (config?.appearance?.theme) {
+      document.documentElement.setAttribute("data-theme", config.appearance.theme);
+      document.documentElement.className = config.appearance.theme;
+    }
+  }, []);
 
   return (
     <div
-      id="app-root"
-      className="flex flex-col h-screen w-screen overflow-hidden text-zinc-100 transition-all duration-300"
-      style={{
-        // When snipping, make the background alpha 0 to see through, but keep window visible
-        backgroundColor: isSnipping ? "transparent" : `rgba(9, 9, 11, ${currentOpacity})`,
-        fontFamily: fontFamilyValue,
-      }}
+      className="app-root"
+      style={{ fontFamily }}
     >
-      {/* Titlebar: Hidden when snipping to show the screen below */}
-      <div
-        data-tauri-drag-region
-        onMouseDown={async (e) => {
-          if (e.buttons === 1) {
-            try { await invoke("start_drag"); } catch (e) {}
-          }
+      <Toaster
+        position="bottom-center"
+        toastOptions={{
+          style: {
+            background: "#0e0e10",
+            color: "#fafafa",
+            border: "1px solid rgba(255,255,255,0.07)",
+            fontSize: "12px",
+            padding: "9px 14px",
+            borderRadius: "8px",
+          },
         }}
-        className={`h-8 flex-shrink-0 border-b bg-zinc-900 flex justify-between items-center select-none transition-opacity duration-200 ${isSnipping ? "opacity-0 pointer-events-none" : "opacity-100"}`}
-        style={{ borderColor: `rgba(39, 39, 42, ${currentOpacity})` }}
-      >
-        <div
-          data-tauri-drag-region
-          className="flex items-center gap-2 px-4 h-full flex-1"
-        >
-          <div data-tauri-drag-region className="w-4 h-4 bg-emerald-600 rounded flex items-center justify-center text-[10px] font-bold text-white">
-            L
+      />
+
+      {/* ── Titlebar ── */}
+      <div className="titlebar" data-tauri-drag-region>
+        {/* Brand */}
+        <div className="titlebar-brand">
+          <div className="brand-glyph">
+            <svg viewBox="0 0 11 11" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M2 2L5.5 2L5.5 9L9 9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </div>
-          <span data-tauri-drag-region className="text-xs font-semibold text-zinc-400">
-            Lucid
-          </span>
+          <span className="brand-name">Lucid</span>
         </div>
-        <div className="flex h-full">
+
+        {/* Tab nav */}
+        <nav className="titlebar-nav">
           <button
-            className="w-11 h-full flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-white"
-            onClick={async () => await getCurrentWindow().minimize()}
+            className={`nav-tab ${view === "chat" ? "active" : ""}`}
+            onClick={() => setView("chat")}
           >
-            <Minus size={14} />
+            Chat
           </button>
           <button
-            className="w-11 h-full flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-white"
-            onClick={async () => {
-               const win = getCurrentWindow();
-               (await win.isMaximized()) ? await win.unmaximize() : await win.maximize();
-            }}
+            className={`nav-tab ${view === "vault" ? "active" : ""}`}
+            onClick={() => setView("vault")}
           >
-            <div className="w-3 h-3 border border-zinc-400 rounded-sm" />
+            Vault
           </button>
           <button
-            className="w-11 h-full flex items-center justify-center text-zinc-400 hover:bg-red-600 hover:text-white"
-            onClick={async () => await getCurrentWindow().close()}
+            className={`nav-tab ${view === "settings" ? "active" : ""}`}
+            onClick={() => setView("settings")}
           >
-            <X size={14} />
+            Settings
+          </button>
+        </nav>
+
+        {/* Window controls */}
+        <div className="titlebar-controls">
+          <button
+            className="wc-btn"
+            onClick={() => setSessionKey(k => k + 1)}
+            title="New Chat"
+            style={{ fontWeight: 600, fontSize: "14px" }}
+          >
+            +
+          </button>
+          <button
+            className="wc-btn"
+            onClick={() => invoke("minimize_window")}
+            title="Minimize"
+          >
+            <svg viewBox="0 0 10 10" fill="none">
+              <path d="M2 5H8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+            </svg>
+          </button>
+          <button
+            className="wc-btn wc-close"
+            onClick={() => invoke("close_window")}
+            title="Close"
+          >
+            <svg viewBox="0 0 10 10" fill="none">
+              <path d="M2.5 2.5L7.5 7.5M7.5 2.5L2.5 7.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+            </svg>
           </button>
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden relative">
-        {/* Main UI Body: Becomes invisible when snipping */}
-        <div className={`flex flex-1 overflow-hidden transition-opacity duration-200 ${isSnipping ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
-          <div className="w-14 flex flex-col items-center py-4 border-r border-zinc-800 bg-zinc-900 gap-6 shrink-0 z-10">
-            <button
-               className={`p-2.5 rounded-xl ${view === "chat" ? "bg-emerald-600 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"}`}
-               onClick={() => setView("chat")}
-            >
-              <MessageSquare size={22} />
-            </button>
-            <button
-               className={`p-2.5 rounded-xl ${view === "settings" ? "bg-emerald-600 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"}`}
-               onClick={() => setView("settings")}
-            >
-              <Settings size={22} />
-            </button>
-            
-            {/* Dedicated Drag Handle */}
-            <div
-              data-tauri-drag-region
-              onMouseDown={async (e) => {
-                if (e.buttons === 1) {
-                  try { await invoke("start_drag"); } catch (e) {}
-                }
-              }}
-              className="p-2.5 rounded-xl text-zinc-500 hover:text-emerald-400 bg-zinc-800/10 hover:bg-zinc-800/30 cursor-default transition-colors mt-2"
-              title="Drag App"
-            >
-              <GripVertical size={22} />
-            </div>
-            <div className="flex-1" />
-            
-            {/* Opacity Slider */}
-            <div className="flex flex-col items-center gap-3 pb-4">
-              <span className="text-[9px] font-bold text-zinc-500 uppercase [writing-mode:vertical-lr] rotate-180 opacity-50">Opacity</span>
-              <div className="h-40 w-5 bg-zinc-800/50 rounded-2xl relative flex items-center justify-center group overflow-hidden border border-zinc-700/30">
-                <input
-                  type="range"
-                  min="0.1"
-                  max="1.0"
-                  step="0.01"
-                  value={currentOpacity}
-                  onChange={async (e) => {
-                    const val = parseFloat(e.target.value);
-                    if (!appConfig) return;
-                    const newConfig = { ...appConfig, appearance: { ...appConfig.appearance, opacity: val } };
-                    setAppConfig(newConfig);
-                    try {
-                      await invoke("set_opacity", { opacity: val });
-                      await invoke("save_config", { config: newConfig });
-                    } catch (err) {}
-                  }}
-                  className="absolute inset-0 cursor-pointer appearance-none bg-transparent -rotate-90 w-40 z-30"
-                  style={{ height: '20px', marginTop: '10px' }}
-                />
-                <div 
-                   className="absolute bottom-0 left-0 right-0 bg-emerald-500/80 rounded-b-xl"
-                   style={{ height: `${currentOpacity * 100}%` }}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex-1 relative overflow-hidden">
-            <div className={`${view === "chat" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"} absolute inset-0 transition-opacity duration-300`}>
-              <ChatPanel sessionKey={sessionKey} pendingSnip={pendingSnip} onSnipConsumed={() => setPendingSnip(null)} />
-            </div>
-            <div className={`${view === "settings" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"} absolute inset-0 transition-opacity duration-300`}>
-              <SettingsPanel
-                onConfigChanged={async () => {
-                   const config: any = await invoke("get_config");
-                   setAppConfig(config);
-                }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Snip Overlay: Stays visible while everything else hides */}
+      {/* ── Content ── */}
+      <div className="app-content">
         {isSnipping && (
           <SnipOverlay
-            onCapture={async (res) => {
+            onCapture={(res) => {
               setIsSnipping(false);
               setPendingSnip(res);
               setView("chat");
-              toast.success("Text captured to clipboard!");
             }}
             onCancel={() => setIsSnipping(false)}
           />
         )}
+        <div style={{ display: view === "chat" ? "flex" : "none", flex: 1, overflow: "hidden", flexDirection: "column", width: "100%" }}>
+          <ChatPanel
+            sessionKey={sessionKey}
+            pendingSnip={pendingSnip}
+            onSnipConsumed={() => setPendingSnip(null)}
+          />
+        </div>
+        
+        <div style={{ display: view === "vault" ? "flex" : "none", flex: 1, overflow: "hidden", flexDirection: "column", width: "100%" }}>
+          <VaultPanel />
+        </div>
+
+        <div style={{ display: view === "settings" ? "flex" : "none", flex: 1, overflow: "hidden", flexDirection: "column", width: "100%" }}>
+          <SettingsPanel onConfigChanged={handleConfigChanged} />
+        </div>
       </div>
-      <Toaster
-        position="bottom-right"
-        toastOptions={{
-          style: {
-            background: "#18181b",
-            color: "#fff",
-            border: "1px solid #27272a",
-          },
-        }}
-      />
     </div>
   );
 }
