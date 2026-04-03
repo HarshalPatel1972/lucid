@@ -1,194 +1,253 @@
-import { useState, useRef, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { Send, Bot, User, Loader2 } from "lucide-react";
+import { useState, useRef, useEffect, useCallback, memo } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 
 export type MessageContent = string | { text: string; image_base64: string };
 
 export interface Message {
-  role: "user" | "assistant" | "system";
+  role: 'user' | 'assistant' | 'system';
   content: MessageContent;
 }
 
 export interface ChatPanelProps {
   sessionKey: number;
-  pendingSnip?: { type: "ocr" | "vision"; data: string } | null;
+  pendingSnip?: { type: 'ocr' | 'vision'; data: string } | null;
   onSnipConsumed?: () => void;
 }
 
-export function ChatPanel({
+// ── Inline SVG Icons ───────────────────────────────────────────
+const UserIcon = () => (
+  <svg viewBox="0 0 12 12" fill="none">
+    <circle cx="6" cy="4.5" r="2" stroke="currentColor" strokeWidth="1.2"/>
+    <path d="M1.5 11c0-2 2-3.5 4.5-3.5S10.5 9 10.5 11" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+  </svg>
+);
+
+const AIIcon = () => (
+  <svg viewBox="0 0 12 12" fill="none">
+    <path d="M6 1L7.5 4.5L11 6L7.5 7.5L6 11L4.5 7.5L1 6L4.5 4.5L6 1Z"
+      stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round"/>
+  </svg>
+);
+
+const SendIcon = () => (
+  <svg viewBox="0 0 14 14" fill="none">
+    <path d="M12 7L2 2.5L5 7L2 11.5L12 7Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" strokeLinecap="round"/>
+  </svg>
+);
+
+// ── Smart text renderer (code blocks + inline code) ────────────
+function renderText(text: string): React.ReactNode {
+  const codeBlockRx = /(```[\s\S]*?```)/g;
+  const parts = text.split(codeBlockRx);
+
+  return parts.map((part, i) => {
+    // Fenced code block
+    if (part.startsWith('```')) {
+      const m = part.match(/^```(\w*)\n?([\s\S]*?)```$/);
+      const lang = m?.[1]?.trim() || '';
+      const code = m?.[2] ?? part.replace(/^```\w*\n?/, '').replace(/```$/, '');
+      return (
+        <div key={i} className="code-block">
+          {lang && (
+            <div className="code-header">
+              <span className="code-lang">{lang}</span>
+            </div>
+          )}
+          <pre><code>{code}</code></pre>
+        </div>
+      );
+    }
+
+    // Inline code
+    const inlineParts = part.split(/(`[^`\n]+`)/g);
+    return (
+      <span key={i}>
+        {inlineParts.map((s, j) =>
+          s.startsWith('`') && s.endsWith('`') && s.length > 2
+            ? <code key={j} className="inline-code">{s.slice(1, -1)}</code>
+            : s
+        )}
+      </span>
+    );
+  });
+}
+
+// ── Component ──────────────────────────────────────────────────
+export const ChatPanel = memo(function ChatPanel({
   sessionKey,
   pendingSnip,
   onSnipConsumed,
 }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [appConfig, setAppConfig] = useState<any>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    invoke("get_config").then(setAppConfig as any).catch(console.error);
     setMessages([]);
+    setInput('');
   }, [sessionKey]);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
-  const handleSend = async () => {
+  const autoResize = (el: HTMLTextAreaElement) => {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 140) + 'px';
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    autoResize(e.target);
+  };
+
+  const handleSend = useCallback(async () => {
     if (!input.trim() && !pendingSnip) return;
     if (loading) return;
 
-    let content: MessageContent = input;
-
+    let content: MessageContent = input.trim();
     if (pendingSnip) {
-      if (pendingSnip.type === "vision") {
-        content = { text: input, image_base64: pendingSnip.data };
-      } else {
-        // ocr
-        content = `[OCR Result:]\n${pendingSnip.data}\n\n[User Input:]\n${input}`;
-      }
+      content = pendingSnip.type === 'vision'
+        ? { text: input.trim(), image_base64: pendingSnip.data }
+        : `[Screen OCR]\n${pendingSnip.data}${input.trim() ? `\n\n${input.trim()}` : ''}`;
     }
 
-    const msg: Message = { role: "user", content };
+    const msg: Message = { role: 'user', content };
     const newMsgs = [...messages, msg];
     setMessages(newMsgs);
-    setInput("");
+    setInput('');
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
     if (onSnipConsumed) onSnipConsumed();
     setLoading(true);
 
     try {
-      const response = await invoke<string>("ai_complete", {
+      const response = await invoke<string>('ai_complete', {
         messages: newMsgs,
-        system: appConfig?.session_prompt || null,
+        system: null,
       });
-      setMessages([...newMsgs, { role: "assistant", content: response }]);
+      setMessages([...newMsgs, { role: 'assistant', content: response }]);
     } catch (e) {
-      setMessages([...newMsgs, { role: "assistant", content: `Error: ${e}` }]);
+      setMessages([...newMsgs, { role: 'assistant', content: `Error: ${e}` }]);
     } finally {
       setLoading(false);
     }
-  };
-
-  const renderContent = (content: MessageContent) => {
-    if (typeof content === "string") return content;
-    return (
-      <div className="flex flex-col gap-2">
-        <img
-          src={`data:image/png;base64,${content.image_base64}`}
-          alt="Uploaded"
-          className="max-w-sm rounded-md shadow-sm"
-        />
-        <p>{content.text}</p>
-      </div>
-    );
-  };
+  }, [input, loading, messages, pendingSnip, onSnipConsumed]);
 
   return (
-    <div className="flex flex-col h-full w-full bg-zinc-950 font-sans text-zinc-100">
-      {/* Header */}
-      <div className="flex items-center px-6 py-4 border-b border-zinc-800 bg-zinc-920 select-none">
-        <h2 className="text-lg font-semibold flex items-center gap-2">
-          <Bot className="text-emerald-400" /> AI Assistant
-        </h2>
-      </div>
-
+    <div className="chat-root">
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      <div className="messages-list">
         {messages.length === 0 && (
-          <div className="h-full flex flex-col items-center justify-center text-zinc-500 gap-4 opacity-50">
-            <Bot size={48} />
-            <p>How can I help you today?</p>
+          <div className="empty-state">
+            <div className="empty-icon">
+              <svg viewBox="0 0 32 32" fill="none">
+                <path d="M16 4L18 12L26 14L18 16L16 24L14 16L6 14L14 12L16 4Z"
+                  stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+                <path d="M24 24L25 27L28 28L25 29L24 32L23 29L20 28L23 27L24 24Z"
+                  stroke="currentColor" strokeWidth="1" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <p className="empty-label">Ask Lucid anything</p>
+            <p className="empty-sub">Type below, or capture a region of your screen</p>
           </div>
         )}
+
         {messages.map((m, i) => (
-          <div
-            key={i}
-            className={`flex gap-4 ${m.role === "user" ? "flex-row-reverse" : ""}`}
-          >
-            <div
-              className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${m.role === "user" ? "bg-emerald-600" : "bg-zinc-800"}`}
-            >
-              {m.role === "user" ? <User size={16} /> : <Bot size={16} />}
-            </div>
-            <div
-              className={`max-w-[75%] px-4 py-3 rounded-2xl whitespace-pre-wrap ${m.role === "user" ? "bg-emerald-600 text-white" : "bg-zinc-800 text-zinc-200"}`}
-            >
-              {renderContent(m.content)}
+          <div key={i} className="msg-group">
+            <div className={`msg-row ${m.role}`}>
+              <div className={`msg-avatar ${m.role}`}>
+                {m.role === 'user' ? <UserIcon /> : <AIIcon />}
+              </div>
+              <div className="msg-body">
+                <div className={`msg-bubble ${m.role}`}>
+                  {typeof m.content === 'string'
+                    ? m.role === 'assistant'
+                      ? renderText(m.content)
+                      : m.content
+                    : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <img
+                          src={`data:image/png;base64,${m.content.image_base64}`}
+                          alt="Attached"
+                          style={{ maxWidth: 220, borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)' }}
+                        />
+                        {m.content.text && <span>{m.content.text}</span>}
+                      </div>
+                    )
+                  }
+                </div>
+              </div>
             </div>
           </div>
         ))}
+
         {loading && (
-          <div className="flex gap-4">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center">
-              <Bot size={16} />
+          <div className="thinking-row">
+            <div className="msg-avatar assistant">
+              <AIIcon />
             </div>
-            <div className="px-4 py-3 rounded-2xl bg-zinc-800 text-zinc-400 flex items-center gap-2">
-              <Loader2 size={16} className="animate-spin" /> Thinking...
+            <div className="thinking-dots">
+              <div className="dot" />
+              <div className="dot" />
+              <div className="dot" />
             </div>
           </div>
         )}
+
         <div ref={endRef} />
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t border-zinc-800 bg-zinc-920">
+      <div className="input-area">
         {pendingSnip && (
-          <div className="max-w-4xl mx-auto mb-2 flex items-center justify-between p-2 rounded-xl bg-blue-900/20 border border-blue-800/50">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded flex-shrink-0 border border-zinc-700 bg-black flex items-center justify-center overflow-hidden">
-                {pendingSnip.type === "vision" && (
-                  <img
-                    src={`data:image/png;base64,${pendingSnip.data}`}
-                    alt="Snip"
-                    className="w-full h-full object-cover"
-                  />
-                )}
-                {pendingSnip.type === "ocr" && (
-                  <span className="text-[10px] font-bold text-zinc-400">
-                    TXT
-                  </span>
-                )}
+          <div className="snip-badge">
+            <div className="snip-badge-left">
+              <div className="snip-thumb">
+                {pendingSnip.type === 'vision'
+                  ? <img src={`data:image/png;base64,${pendingSnip.data}`} alt="snip" />
+                  : 'TXT'
+                }
               </div>
-              <div className="text-sm">
-                <p className="font-semibold text-blue-200">
-                  Attached Snip ({pendingSnip.type})
+              <div>
+                <p className="snip-label">
+                  {pendingSnip.type === 'vision' ? 'Screenshot' : 'OCR text'} attached
                 </p>
-                <p className="text-xs text-blue-400">Ready to send</p>
+                <p className="snip-sub">Will send with your message</p>
               </div>
             </div>
-            <button
-              onClick={onSnipConsumed}
-              className="text-zinc-400 hover:text-white p-2"
-              title="Remove attachment"
-            >
-              &times;
-            </button>
+            <button className="snip-dismiss" onClick={onSnipConsumed} title="Remove">✕</button>
           </div>
         )}
-        <div className="flex gap-2 max-w-4xl mx-auto">
+
+        <div className="input-row">
           <textarea
+            ref={textareaRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={handleInputChange}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
+              if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 handleSend();
               }
             }}
-            placeholder="Type a message... (Shift+Enter for new line)"
-            className="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none min-h-[52px] max-h-48"
+            placeholder="Message Lucid… (Enter to send, Shift+Enter for newline)"
+            className="chat-textarea"
             rows={1}
           />
           <button
             onClick={handleSend}
-            disabled={loading || !input.trim()}
-            className="self-end p-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:hover:bg-emerald-600 text-white transition-colors"
+            disabled={loading || (!input.trim() && !pendingSnip)}
+            className="send-btn"
+            title="Send (Enter)"
           >
-            <Send size={20} />
+            <SendIcon />
           </button>
         </div>
       </div>
     </div>
   );
-}
+});
