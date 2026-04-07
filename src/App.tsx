@@ -26,7 +26,13 @@ export default function App() {
         setAppConfig(config);
         if (config?.appearance?.theme) {
           document.documentElement.setAttribute("data-theme", config.appearance.theme);
-          document.documentElement.className = config.appearance.theme;
+          // Using classList instead of className to avoid wiping other classes
+          document.documentElement.classList.add(config.appearance.theme);
+        }
+        if (config.specs_mode) {
+          document.documentElement.classList.add("specs-mode");
+        } else {
+          document.documentElement.classList.remove("specs-mode");
         }
         if (config.appearance?.opacity !== undefined) {
           document.documentElement.style.setProperty("--app-opacity", config.appearance.opacity.toString());
@@ -49,14 +55,23 @@ export default function App() {
       if (!config) return;
       const key = event.payload;
 
-      if (key === config.hotkeys.snip_region) {
+      if (key === "snip_region") {
         setIsSnipping(true);
-      } else if (key === config.hotkeys.focus_chat) {
+      } else if (key === "focus_chat") {
         setView("chat");
-      } else if (key === config.hotkeys.new_session) {
+      } else if (key === "new_session") {
         setView("chat");
         setSessionKey((k) => k + 1);
-      } else if (key === config.hotkeys.capture_full) {
+        toast.success("New Session Started", {
+          icon: "➕",
+          style: {
+            background: "#0e0e10",
+            color: "#fafafa",
+            border: "1px solid rgba(255,255,255,0.07)",
+            fontSize: "12px",
+          },
+        });
+      } else if (key === "capture_full") {
         try {
           const base64 = await invoke("capture_full");
           setPendingSnip({ type: "vision", data: base64 as string });
@@ -64,7 +79,7 @@ export default function App() {
         } catch (e) {
           console.error("Full capture failed", e);
         }
-      } else if (key === config.hotkeys.toggle_click_through) {
+      } else if (key === "toggle_click_through") {
         const newGhostMode = !config.ghost_mode;
         try {
           const updatedConfig = { ...config, ghost_mode: newGhostMode };
@@ -103,9 +118,63 @@ export default function App() {
     setAppConfig(config);
     if (config?.appearance?.theme) {
       document.documentElement.setAttribute("data-theme", config.appearance.theme);
-      document.documentElement.className = config.appearance.theme;
+      // Remove possible other themes first if they were there
+      const themes = ["dark", "light", "dracula", "nord", "gruvbox", "system"];
+      themes.forEach(t => document.documentElement.classList.remove(t));
+      document.documentElement.classList.add(config.appearance.theme);
+    }
+    if (config.specs_mode) {
+      document.documentElement.classList.add("specs-mode");
+    } else {
+      document.documentElement.classList.remove("specs-mode");
     }
   }, []);
+
+  // ── Resize Grip Handling ──
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeRef = useRef<{ startX: number; startY: number; startW: number; startH: number } | null>(null);
+
+  const startResizing = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const { PhysicalSize, getCurrentWebviewWindow } = await import("@tauri-apps/api/window");
+      const appWin = getCurrentWebviewWindow();
+      const factor = await appWin.scaleFactor();
+      const size = await appWin.innerSize();
+      
+      setIsResizing(true);
+      resizeRef.current = {
+        startX: e.screenX,
+        startY: e.screenY,
+        startW: size.width / factor,
+        startH: size.height / factor
+      };
+
+      const handleMove = async (moveEvent: MouseEvent) => {
+        if (!resizeRef.current) return;
+        const deltaX = moveEvent.screenX - resizeRef.current.startX;
+        const deltaY = moveEvent.screenY - resizeRef.current.startY;
+        
+        const newW = Math.max(200, resizeRef.current.startW + deltaX);
+        const newH = Math.max(150, resizeRef.current.startH + deltaY);
+        
+        await appWin.setSize(new PhysicalSize(Math.round(newW * factor), Math.round(newH * factor)));
+      };
+
+      const handleUp = () => {
+        setIsResizing(false);
+        resizeRef.current = null;
+        window.removeEventListener("mousemove", handleMove);
+        window.removeEventListener("mouseup", handleUp);
+      };
+
+      window.addEventListener("mousemove", handleMove);
+      window.addEventListener("mouseup", handleUp);
+    } catch (err) {
+      console.error("Resize failed", err);
+    }
+  };
 
   return (
     <div
@@ -135,7 +204,7 @@ export default function App() {
               <path d="M2 2L5.5 2L5.5 9L9 9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
-          <span className="brand-name">Lucid</span>
+          <span className="brand-name">AudioControl</span>
         </div>
 
         {/* Tab nav */}
@@ -144,7 +213,7 @@ export default function App() {
             className={`nav-tab ${view === "chat" ? "active" : ""}`}
             onClick={() => setView("chat")}
           >
-            Chat
+            Session
           </button>
           <button
             className={`nav-tab ${view === "vault" ? "active" : ""}`}
@@ -156,7 +225,7 @@ export default function App() {
             className={`nav-tab ${view === "settings" ? "active" : ""}`}
             onClick={() => setView("settings")}
           >
-            Settings
+            Config
           </button>
         </nav>
 
@@ -219,6 +288,23 @@ export default function App() {
           <SettingsPanel onConfigChanged={handleConfigChanged} />
         </div>
       </div>
+
+      {/* Stealth Resize Grip */}
+      <div className={`resize-grip ${isResizing ? 'active' : ''}`} onMouseDown={startResizing}>
+        <div className="grip-row">
+          <div className="grip-dot" />
+          <div className="grip-dot" />
+          <div className="grip-dot" />
+        </div>
+        <div className="grip-row">
+          <div className="grip-dot" />
+          <div className="grip-dot" />
+        </div>
+        <div className="grip-row">
+          <div className="grip-dot" />
+        </div>
+      </div>
     </div>
   );
+}
 }

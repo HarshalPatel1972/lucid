@@ -1,0 +1,30 @@
+   Compiling lucid v0.1.0 (C:\Users\Harshal Patel\Desktop\Project Elrond\lucid\src-tauri)
+error: failed to run custom build command for `lucid v0.1.0 (C:\Users\Harshal Patel\Desktop\Project Elrond\lucid\src-tauri)`
+
+Caused by:
+  process didn't exit successfully: `C:\Users\Harshal Patel\Desktop\Project Elrond\lucid\src-tauri\target\debug\build\lucid-6ec896d4a7c291e8\build-script-build` (exit code: 101)
+  --- stdout
+  cargo:rerun-if-env-changed=TAURI_CONFIG
+  cargo:rustc-check-cfg=cfg(desktop)
+  cargo:rustc-cfg=desktop
+  cargo:rustc-check-cfg=cfg(mobile)
+  cargo:rerun-if-changed=C:\Users\Harshal Patel\Desktop\Project Elrond\lucid\src-tauri\tauri.conf.json
+  cargo:rustc-env=TAURI_ANDROID_PACKAGE_NAME_APP_NAME=app
+  cargo:rustc-env=TAURI_ANDROID_PACKAGE_NAME_PREFIX=com_lucid
+  cargo:rustc-check-cfg=cfg(dev)
+  cargo:rustc-cfg=dev
+  cargo:PERMISSION_FILES_PATH=C:\Users\Harshal Patel\Desktop\Project Elrond\lucid\src-tauri\target\debug\build\lucid-5b254ac33315865b\out\app-manifest\__app__-permission-files
+  cargo:rerun-if-changed=capabilities
+  cargo:rerun-if-env-changed=REMOVE_UNUSED_COMMANDS
+  cargo:rustc-env=TAURI_ENV_TARGET_TRIPLE=x86_64-pc-windows-msvc
+  package.metadata does not exist
+  Microsoft (R) Windows (R) Resource Compiler Version 10.0.10011.16384
+  Copyright (C) Microsoft Corporation.  All rights reserved.
+
+  C:\Users\Harshal Patel\Desktop\Project Elrond\lucid\src-tauri\target\debug\build\lucid-5b254ac33315865b\out\resource.rc(26) : error RC2175 : resource file C:\Users\Harshal Patel\Desktop\Project Elrond\lucid\src-tauri\icons\icon.ico is not in 3.00 format
+
+  --- stderr
+
+  thread 'main' (18356) panicked at C:\Users\Harshal Patel\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\tauri-winres-0.3.5\src\lib.rs:536:14:
+  called `Result::unwrap()` on an `Err` value: Failed("RC.EXE failed to compile specified resource file")
+  note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

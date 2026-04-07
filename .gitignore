@@ -7,18 +7,35 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Node modules
+node_modules/
+
+# Build artifacts
+dist/
+dist-ssr/
+src-tauri/target/
+
+# Local/Environment
 *.local
+.env*
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+.DS_Store
+
+# AI/Agent artifacts
+.gemini/
+brain/
+implementation_plan*.md
+task.md
+walkthrough.md
+analysis_results.md
+research_notes.md
+experiment_results.md

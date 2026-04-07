@@ -321,7 +321,6 @@ export const SettingsPanel = memo(function SettingsPanel({
                     </select>
                   </div>
                 </div>
-
                 <div className="srow">
                   <div className="srow-left">
                     <p className="srow-label">Window Opacity</p>
@@ -344,6 +343,27 @@ export const SettingsPanel = memo(function SettingsPanel({
                     />
                     <span className="range-val">
                       {Math.round((config.appearance.opacity ?? 1.0) * 100)}%
+                    </span>
+                  </div>
+                </div>
+
+                <div className="srow">
+                  <div className="srow-left">
+                    <p className="srow-label">Resize Increment</p>
+                    <p className="srow-desc">Amount in pixels to grow/shrink with Alt+Arrows</p>
+                  </div>
+                  <div className="srow-control" style={{ gap: 8 }}>
+                    <input
+                      type="range"
+                      min="5"
+                      max="50"
+                      step="5"
+                      value={config.appearance.resize_increment ?? 15}
+                      onChange={(e) => patchAppearance({ resize_increment: parseInt(e.target.value) })}
+                      className="s-range"
+                    />
+                    <span className="range-val">
+                      {config.appearance.resize_increment ?? 15}px
                     </span>
                   </div>
                 </div>
@@ -384,6 +404,40 @@ export const SettingsPanel = memo(function SettingsPanel({
                     <Toggle
                       checked={config.ghost_mode}
                       onChange={(v) => patch({ ghost_mode: v })}
+                    />
+                  </div>
+                </div>
+
+                <div className="srow">
+                  <div className="srow-left">
+                    <p className="srow-label">No-Focus Interaction</p>
+                    <p className="srow-desc">
+                      Interacting with Lucid won't deactivate your background app
+                    </p>
+                  </div>
+                  <div className="srow-control">
+                    <Toggle
+                      checked={config.no_activate}
+                      onChange={(v) => {
+                         patch({ no_activate: v });
+                         invoke("set_no_activate", { enabled: v }).catch(console.error);
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="srow">
+                  <div className="srow-left">
+                    <p className="srow-label">Specs Mode</p>
+                    <p className="srow-desc">Force standard arrow cursor everywhere in Lucid</p>
+                  </div>
+                  <div className="srow-control">
+                    <Toggle
+                      checked={config.specs_mode}
+                      onChange={(v) => {
+                        patch({ specs_mode: v });
+                        invoke("set_resizable", { enabled: !v }).catch(console.error);
+                      }}
                     />
                   </div>
                 </div>

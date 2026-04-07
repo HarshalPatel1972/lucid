@@ -1,0 +1,193 @@
+   Compiling audiocontrol v0.1.0 (C:\Users\Harshal Patel\Desktop\Project Elrond\lucid\src-tauri)
+warning: unused import: `tauri::Manager`
+  --> src\window\mod.rs:77:9
+   |
+77 |     use tauri::Manager;
+   |         ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+error[E0308]: mismatched types
+   --> src\hotkeys\mod.rs:108:62
+    |
+108 |                         let _ = crate::window::resize_window(window.as_ref().window(), 0, -inc, 0, inc);
+    |                                 ---------------------------- ^^^^^^^^^^^^^^^^^^^^^^^^ expected `&Window`, found `Window`
+    |                                 |
+    |                                 arguments to this function are incorrect
+    |
+    = note: expected reference `&tauri::Window`
+                  found struct `tauri::Window`
+note: function defined here
+   --> src\window\mod.rs:76:8
+    |
+ 76 | pub fn resize_window(window: &tauri::Window, dx: i32, dy: i32, dw: i32, dh: i32) -> Result<()> {
+    |        ^^^^^^^^^^^^^ ----------------------
+help: consider borrowing here
+    |
+108 |                         let _ = crate::window::resize_window(&window.as_ref().window(), 0, -inc, 0, inc);
+    |                                                              +
+
+error[E0308]: mismatched types
+   --> src\hotkeys\mod.rs:116:62
+    |
+116 |                         let _ = crate::window::resize_window(window.as_ref().window(), 0, 0, 0, inc);
+    |                                 ---------------------------- ^^^^^^^^^^^^^^^^^^^^^^^^ expected `&Window`, found `Window`
+    |                                 |
+    |                                 arguments to this function are incorrect
+    |
+    = note: expected reference `&tauri::Window`
+                  found struct `tauri::Window`
+note: function defined here
+   --> src\window\mod.rs:76:8
+    |
+ 76 | pub fn resize_window(window: &tauri::Window, dx: i32, dy: i32, dw: i32, dh: i32) -> Result<()> {
+    |        ^^^^^^^^^^^^^ ----------------------
+help: consider borrowing here
+    |
+116 |                         let _ = crate::window::resize_window(&window.as_ref().window(), 0, 0, 0, inc);
+    |                                                              +
+
+error[E0308]: mismatched types
+   --> src\hotkeys\mod.rs:124:62
+    |
+124 |                         let _ = crate::window::resize_window(window.as_ref().window(), -inc, 0, inc, 0);
+    |                                 ---------------------------- ^^^^^^^^^^^^^^^^^^^^^^^^ expected `&Window`, found `Window`
+    |                                 |
+    |                                 arguments to this function are incorrect
+    |
+    = note: expected reference `&tauri::Window`
+                  found struct `tauri::Window`
+note: function defined here
+   --> src\window\mod.rs:76:8
+    |
+ 76 | pub fn resize_window(window: &tauri::Window, dx: i32, dy: i32, dw: i32, dh: i32) -> Result<()> {
+    |        ^^^^^^^^^^^^^ ----------------------
+help: consider borrowing here
+    |
+124 |                         let _ = crate::window::resize_window(&window.as_ref().window(), -inc, 0, inc, 0);
+    |                                                              +
+
+error[E0308]: mismatched types
+   --> src\hotkeys\mod.rs:132:62
+    |
+132 |                         let _ = crate::window::resize_window(window.as_ref().window(), 0, 0, inc, 0);
+    |                                 ---------------------------- ^^^^^^^^^^^^^^^^^^^^^^^^ expected `&Window`, found `Window`
+    |                                 |
+    |                                 arguments to this function are incorrect
+    |
+    = note: expected reference `&tauri::Window`
+                  found struct `tauri::Window`
+note: function defined here
+   --> src\window\mod.rs:76:8
+    |
+ 76 | pub fn resize_window(window: &tauri::Window, dx: i32, dy: i32, dw: i32, dh: i32) -> Result<()> {
+    |        ^^^^^^^^^^^^^ ----------------------
+help: consider borrowing here
+    |
+132 |                         let _ = crate::window::resize_window(&window.as_ref().window(), 0, 0, inc, 0);
+    |                                                              +
+
+error[E0308]: mismatched types
+   --> src\hotkeys\mod.rs:140:62
+    |
+140 |                         let _ = crate::window::resize_window(window.as_ref().window(), 0, inc, 0, -inc);
+    |                                 ---------------------------- ^^^^^^^^^^^^^^^^^^^^^^^^ expected `&Window`, found `Window`
+    |                                 |
+    |                                 arguments to this function are incorrect
+    |
+    = note: expected reference `&tauri::Window`
+                  found struct `tauri::Window`
+note: function defined here
+   --> src\window\mod.rs:76:8
+    |
+ 76 | pub fn resize_window(window: &tauri::Window, dx: i32, dy: i32, dw: i32, dh: i32) -> Result<()> {
+    |        ^^^^^^^^^^^^^ ----------------------
+help: consider borrowing here
+    |
+140 |                         let _ = crate::window::resize_window(&window.as_ref().window(), 0, inc, 0, -inc);
+    |                                                              +
+
+error[E0308]: mismatched types
+   --> src\hotkeys\mod.rs:148:62
+    |
+148 |                         let _ = crate::window::resize_window(window.as_ref().window(), 0, 0, 0, -inc);
+    |                                 ---------------------------- ^^^^^^^^^^^^^^^^^^^^^^^^ expected `&Window`, found `Window`
+    |                                 |
+    |                                 arguments to this function are incorrect
+    |
+    = note: expected reference `&tauri::Window`
+                  found struct `tauri::Window`
+note: function defined here
+   --> src\window\mod.rs:76:8
+    |
+ 76 | pub fn resize_window(window: &tauri::Window, dx: i32, dy: i32, dw: i32, dh: i32) -> Result<()> {
+    |        ^^^^^^^^^^^^^ ----------------------
+help: consider borrowing here
+    |
+148 |                         let _ = crate::window::resize_window(&window.as_ref().window(), 0, 0, 0, -inc);
+    |                                                              +
+
+error[E0308]: mismatched types
+   --> src\hotkeys\mod.rs:156:62
+    |
+156 |                         let _ = crate::window::resize_window(window.as_ref().window(), inc, 0, -inc, 0);
+    |                                 ---------------------------- ^^^^^^^^^^^^^^^^^^^^^^^^ expected `&Window`, found `Window`
+    |                                 |
+    |                                 arguments to this function are incorrect
+    |
+    = note: expected reference `&tauri::Window`
+                  found struct `tauri::Window`
+note: function defined here
+   --> src\window\mod.rs:76:8
+    |
+ 76 | pub fn resize_window(window: &tauri::Window, dx: i32, dy: i32, dw: i32, dh: i32) -> Result<()> {
+    |        ^^^^^^^^^^^^^ ----------------------
+help: consider borrowing here
+    |
+156 |                         let _ = crate::window::resize_window(&window.as_ref().window(), inc, 0, -inc, 0);
+    |                                                              +
+
+error[E0308]: mismatched types
+   --> src\hotkeys\mod.rs:164:62
+    |
+164 |                         let _ = crate::window::resize_window(window.as_ref().window(), 0, 0, -inc, 0);
+    |                                 ---------------------------- ^^^^^^^^^^^^^^^^^^^^^^^^ expected `&Window`, found `Window`
+    |                                 |
+    |                                 arguments to this function are incorrect
+    |
+    = note: expected reference `&tauri::Window`
+                  found struct `tauri::Window`
+note: function defined here
+   --> src\window\mod.rs:76:8
+    |
+ 76 | pub fn resize_window(window: &tauri::Window, dx: i32, dy: i32, dw: i32, dh: i32) -> Result<()> {
+    |        ^^^^^^^^^^^^^ ----------------------
+help: consider borrowing here
+    |
+164 |                         let _ = crate::window::resize_window(&window.as_ref().window(), 0, 0, -inc, 0);
+    |                                                              +
+
+error[E0308]: mismatched types
+    --> src\window\mod.rs:90:13
+     |
+  88 |         SetWindowPos(
+     |         ------------ arguments to this function are incorrect
+  89 |             hwnd,
+  90 |             HWND_TOP,
+     |             ^^^^^^^^ expected `Option<HWND>`, found `HWND`
+     |
+     = note: expected enum `std::option::Option<HWND>`
+              found struct `HWND`
+note: function defined here
+    --> C:\Users\Harshal Patel\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-0.61.3\src\Windows\Win32\UI\WindowsAndMessaging\mod.rs:2279:15
+     |
+2279 | pub unsafe fn SetWindowPos(hwnd: super::super::Foundation::HWND, hwndinsertafter: Option<super::super::Foundation::HWND>, x: i32, y: i32,...
+     |               ^^^^^^^^^^^^
+help: try wrapping the expression in `Some`
+     |
+  90 |             Some(HWND_TOP),
+     |             +++++        +
+
+For more information about this error, try `rustc --explain E0308`.
+warning: `audiocontrol` (lib) generated 1 warning
+error: could not compile `audiocontrol` (lib) due to 9 previous errors; 1 warning emitted

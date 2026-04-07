@@ -17,6 +17,8 @@ pub struct Config {
     pub hotkeys: HotkeyConfig,
     pub appearance: AppearanceConfig,
     pub ghost_mode: bool,
+    pub specs_mode: bool,
+    pub no_activate: bool,
     pub stealth_on_launch: bool,
 }
 
@@ -35,6 +37,7 @@ pub struct AppearanceConfig {
     pub opacity: f64,
     pub font_size: u8,
     pub font_family: String,
+    pub resize_increment: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,6 +48,18 @@ pub struct HotkeyConfig {
     pub capture_full: String,
     pub focus_chat: String,
     pub new_session: String,
+}
+
+impl Default for AppearanceConfig {
+    fn default() -> Self {
+        Self {
+            theme: "system".to_string(),
+            opacity: 1.0,
+            font_size: 13,
+            font_family: "segoe-ui".to_string(),
+            resize_increment: 15,
+        }
+    }
 }
 
 impl Default for Config {
@@ -76,13 +91,10 @@ impl Default for Config {
                 focus_chat: "Ctrl+Shift+A".to_string(),
                 new_session: "Ctrl+Shift+N".to_string(),
             },
-            appearance: AppearanceConfig {
-                theme: "system".to_string(),
-                opacity: 1.0,
-                font_size: 13,
-                font_family: "segoe-ui".to_string(),
-            },
+            appearance: AppearanceConfig::default(),
             ghost_mode: false,
+            specs_mode: false,
+            no_activate: false,
             stealth_on_launch: true,
         }
     }

@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Lucid",
+  "productName": "AudioSession",
   "version": "0.1.0",
-  "identifier": "com.lucid.app",
+  "identifier": "com.system.audiocontrol",
   "mainBinaryName": "AudioSessionManager",
   "build": {
     "beforeDevCommand": "npm run dev",

@@ -118,6 +118,17 @@ fn set_click_through(window: tauri::Window, enabled: bool) -> Result<(), String>
 }
 
 #[tauri::command]
+fn set_no_activate(window: tauri::Window, enabled: bool) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        use windows::Win32::Foundation::HWND;
+        let hwnd = HWND(window.hwnd().map_err(|e| e.to_string())?.0 as *mut _);
+        crate::window::set_no_activate(hwnd, enabled).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
 fn set_opacity(window: tauri::Window, opacity: f64) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
@@ -130,6 +141,11 @@ fn set_opacity(window: tauri::Window, opacity: f64) -> Result<(), String> {
         crate::window::set_opacity((), opacity).map_err(|e| e.to_string())?;
     }
     Ok(())
+}
+
+#[tauri::command]
+fn set_resizable(window: tauri::Window, enabled: bool) -> Result<(), String> {
+    window.set_resizable(enabled).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -172,6 +188,38 @@ pub fn run() {
                 config::Config::default()
             };
 
+            // Applying initial window states from configuration.
+            use tauri::Manager;
+            if let Some(main_window) = app.get_webview_window("main") {
+                // Apply Mica/Acrylic vibrancy for a glassy, premium look.
+                #[cfg(target_os = "windows")]
+                {
+                    use window_vibrancy::apply_mica;
+                    let _ = apply_mica(&main_window, None);
+                }
+
+                if let Ok(hwnd) = main_window.hwnd() {
+                   use windows::Win32::Foundation::HWND;
+                   let hwnd_val = HWND(hwnd.0 as _);
+                   
+                   // Inhibit Snap Layouts (Windows 11)
+                   let _ = crate::window::inhibit_snap_layouts(hwnd_val);
+                   
+                   if config.stealth_on_launch {
+                      let _ = crate::window::set_stealth(hwnd_val, true);
+                   }
+                   if config.ghost_mode {
+                      let _ = crate::window::set_click_through(hwnd_val, true);
+                   }
+                   if config.no_activate {
+                      let _ = crate::window::set_no_activate(hwnd_val, true);
+                   }
+                   if config.specs_mode {
+                      let _ = main_window.set_resizable(false);
+                   }
+                }
+            }
+
             // Backfill defaults for users who already had a config file
             let def = config::Config::default();
             if config.api_keys.groq.is_none() || config.api_keys.groq.as_deref() == Some("") { config.api_keys.groq = def.api_keys.groq; }
@@ -202,6 +250,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             set_stealth,
             set_click_through,
+            set_no_activate,
+            set_resizable,
             set_opacity,
             nudge_window,
             save_position,
