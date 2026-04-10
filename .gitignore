@@ -22,3 +22,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Tauri
+src-tauri/target
+src-tauri/gen
+src-tauri/build_error.txt
+src-tauri/final_errors.txt
+src-tauri/err.txt
+src-tauri/errors.txt
+
+# Temp
+HarshalPatel1972_profile/

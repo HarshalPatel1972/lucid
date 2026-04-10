@@ -5,7 +5,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 
 #[tauri::command]
-pub fn set_ghost_mode(window: Window, enable: bool) {
+pub fn set_focus_overlay_mode(window: Window, enable: bool) {
     if let Ok(hwnd) = window.hwnd() {
         let hwnd = HWND(hwnd.0 as _);
         unsafe {

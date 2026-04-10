@@ -158,8 +158,8 @@ export const SettingsPanel = memo(function SettingsPanel({
         );
       }
       nativeOps.push(
-        invoke("set_click_through", { enabled: config.ghost_mode }).catch(console.error),
-        invoke("set_stealth", { enabled: config.stealth_on_launch }).catch(console.error)
+        invoke("set_click_through", { enabled: config.overlay_mode }).catch(console.error),
+        invoke("set_privacy_mode", { enabled: config.privacy_mode_on_launch }).catch(console.error)
       );
       await Promise.all(nativeOps);
       toast.success("Settings saved");
@@ -360,30 +360,30 @@ export const SettingsPanel = memo(function SettingsPanel({
               <div className="settings-card">
                 <div className="srow">
                   <div className="srow-left">
-                    <p className="srow-label">Stealth on Launch</p>
+                    <p className="srow-label">Privacy Mode on Launch</p>
                     <p className="srow-desc">
-                      Hide window from screen capture and recording tools at startup
+                      Exclude window from screen capture and recording tools at startup
                     </p>
                   </div>
                   <div className="srow-control">
                     <Toggle
-                      checked={config.stealth_on_launch}
-                      onChange={(v) => patch({ stealth_on_launch: v })}
+                      checked={config.privacy_mode_on_launch}
+                      onChange={(v) => patch({ privacy_mode_on_launch: v })}
                     />
                   </div>
                 </div>
 
                 <div className="srow">
                   <div className="srow-left">
-                    <p className="srow-label">Ghost Mode on Launch</p>
+                    <p className="srow-label">Overlay Mode on Launch</p>
                     <p className="srow-desc">
-                      Start with click-through enabled — mouse clicks pass through the window
+                      Start with click-through enabled for a non-intrusive heads-up display
                     </p>
                   </div>
                   <div className="srow-control">
                     <Toggle
-                      checked={config.ghost_mode}
-                      onChange={(v) => patch({ ghost_mode: v })}
+                      checked={config.overlay_mode}
+                      onChange={(v) => patch({ overlay_mode: v })}
                     />
                   </div>
                 </div>
@@ -404,7 +404,7 @@ export const SettingsPanel = memo(function SettingsPanel({
                   onChange={(v) => patchHotkeys({ toggle_visibility: v })}
                 />
                 <HotkeyCapture
-                  label="Toggle Ghost Mode"
+                  label="Toggle Overlay Mode"
                   value={config.hotkeys.toggle_click_through}
                   onChange={(v) => patchHotkeys({ toggle_click_through: v })}
                 />

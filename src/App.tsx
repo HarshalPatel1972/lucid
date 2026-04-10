@@ -33,8 +33,8 @@ export default function App() {
           try { await invoke("set_opacity", { opacity: config.appearance.opacity }); } catch (_) {}
         }
         const tasks: Promise<unknown>[] = [];
-        if (config.stealth_on_launch) tasks.push(invoke("set_stealth", { enabled: true }));
-        if (config.ghost_mode) tasks.push(invoke("set_click_through", { enabled: true }));
+        if (config.privacy_mode_on_launch) tasks.push(invoke("set_privacy_mode", { enabled: true }));
+        if (config.overlay_mode) tasks.push(invoke("set_click_through", { enabled: true }));
         await Promise.all(tasks);
       } catch (err) {
         console.error("Failed to initialize app config", err);
@@ -65,17 +65,17 @@ export default function App() {
           console.error("Full capture failed", e);
         }
       } else if (key === config.hotkeys.toggle_click_through) {
-        const newGhostMode = !config.ghost_mode;
+        const newOverlayMode = !config.overlay_mode;
         try {
-          const updatedConfig = { ...config, ghost_mode: newGhostMode };
+          const updatedConfig = { ...config, overlay_mode: newOverlayMode };
           await Promise.all([
-            invoke("set_click_through", { enabled: newGhostMode }),
+            invoke("set_click_through", { enabled: newOverlayMode }),
             invoke("save_config", { config: updatedConfig }),
           ]);
           configRef.current = updatedConfig;
           setAppConfig(updatedConfig);
-          toast(newGhostMode ? "Ghost mode enabled" : "Ghost mode disabled", {
-            icon: newGhostMode ? "👻" : "👁",
+          toast(newOverlayMode ? "Overlay mode enabled" : "Overlay mode disabled", {
+            icon: newOverlayMode ? "👁️" : "👁️",
             style: {
               background: "#0e0e10",
               color: "#fafafa",

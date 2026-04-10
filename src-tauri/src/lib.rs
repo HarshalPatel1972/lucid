@@ -1,7 +1,7 @@
 pub mod ai;
 pub mod capture;
 pub mod config;
-pub mod ghost;
+pub mod overlay;
 pub mod hotkeys;
 pub mod window;
 pub mod tray;
@@ -88,16 +88,16 @@ fn save_config(config: config::Config, state: tauri::State<'_, AppState>, app: t
 }
 
 #[tauri::command]
-fn set_stealth(window: tauri::Window, enabled: bool) -> Result<(), String> {
+fn set_privacy_mode(window: tauri::Window, enabled: bool) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
         use windows::Win32::Foundation::HWND;
         let hwnd = HWND(window.hwnd().map_err(|e| e.to_string())?.0 as *mut _);
-        crate::window::set_stealth(hwnd, enabled).map_err(|e| e.to_string())?;
+        crate::window::set_privacy_mode(hwnd, enabled).map_err(|e| e.to_string())?;
     }
     #[cfg(not(target_os = "windows"))]
     {
-        crate::window::set_stealth(enabled).map_err(|e| e.to_string())?;
+        crate::window::set_privacy_mode(enabled).map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -200,7 +200,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            set_stealth,
+            set_privacy_mode,
             set_click_through,
             set_opacity,
             nudge_window,
@@ -210,7 +210,7 @@ pub fn run() {
             close_window,
             save_config,
             get_config,
-            crate::ghost::set_ghost_mode,
+            crate::overlay::set_focus_overlay_mode,
             crate::capture::capture_full,
             crate::capture::capture_region,
             crate::capture::ocr_region,

@@ -16,8 +16,9 @@ pub struct Config {
     pub session_prompt: Option<String>,
     pub hotkeys: HotkeyConfig,
     pub appearance: AppearanceConfig,
-    pub ghost_mode: bool,
-    pub stealth_on_launch: bool,
+    pub overlay_mode: bool,
+    pub specs_mode: bool,
+    pub privacy_mode_on_launch: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,8 +83,9 @@ impl Default for Config {
                 font_size: 13,
                 font_family: "segoe-ui".to_string(),
             },
-            ghost_mode: false,
-            stealth_on_launch: true,
+            overlay_mode: false,
+            specs_mode: false,
+            privacy_mode_on_launch: true,
         }
     }
 }

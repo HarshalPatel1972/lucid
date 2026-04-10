@@ -1,4 +1,4 @@
-//! Window management — stealth, click-through, transparency, position.
+//! Window management — privacy, click-through, transparency, position.
 //!
 //! This module owns all Win32 window manipulation for Lucid.
 //! Nothing outside this module should call Win32 window APIs directly.
@@ -16,16 +16,15 @@ use windows::Win32::{
     },
 };
 
-/// Makes the window invisible to all screen capture software.
+/// Excludes the window from screen capture and recording.
 ///
 /// Uses `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)`.
 /// Works against: Zoom, Teams, Google Meet, OBS, Windows Game Bar.
-/// Does NOT protect against kernel-level endpoint monitoring software.
 ///
 /// # Safety
 /// `hwnd` must be a valid window handle owned by this process.
 #[cfg(target_os = "windows")]
-pub fn set_stealth(hwnd: HWND, enabled: bool) -> Result<()> {
+pub fn set_privacy_mode(hwnd: HWND, enabled: bool) -> Result<()> {
     let affinity = if enabled { WDA_EXCLUDEFROMCAPTURE } else { WDA_NONE };
     unsafe {
         // SAFETY: hwnd is obtained from Tauri's window handle,
@@ -37,7 +36,7 @@ pub fn set_stealth(hwnd: HWND, enabled: bool) -> Result<()> {
 }
 
 #[cfg(not(target_os = "windows"))]
-pub fn set_stealth(_enabled: bool) -> Result<()> {
+pub fn set_privacy_mode(_enabled: bool) -> Result<()> {
     // No-op on non-Windows platforms (future cross-platform support)
     Ok(())
 }

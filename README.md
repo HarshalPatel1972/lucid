@@ -1,7 +1,7 @@
 <div align="center">
   <img src="public/logo.png" alt="Lucid Logo" width="120" style="border-radius: 20px;" />
   <h1>Lucid</h1>
-  <p><strong>A lightning-fast, highly stealthy Desktop AI Assistant built for power users.</strong></p>
+  <p><strong>A lightning-fast AI Meeting Assistant designed for professionals, managers, and developers.</strong></p>
   <p>
     <a href="https://tauri.app/">
       <img src="https://img.shields.io/badge/tauri-%2324C8DB.svg?style=for-the-badge&logo=tauri&logoColor=white" alt="Tauri" />
@@ -17,30 +17,32 @@
 
 <br />
 
-Lucid is a next-generation desktop application that seamlessly merges best-in-class Large Language Models with deep OS-level window integrations. Built entirely on the **Tauri v2 API** backend with a highly-optimized **React/Vite** frontend, it delivers instant inference, transparent ghosting capabilities, and robust context saving.
+Lucid is a professional desktop application that enhances meeting productivity by merging Large Language Models with deep OS-level window integrations. Built on the **Tauri v2 API** backend with a highly-optimized **React/Vite** frontend, it delivers instant summaries, real-time transcription, and robust knowledge management.
 
 ## ✨ Core Features
 
-- 🧠 **Omni-Model Circular Failover**
-  - Natively supports Groq (Llama 3), Gemini 2.5 Flash, DeepSeek V3, OpenRouter, and local Ollama integrations.
-  - Implements a true "Circular Fallback" queue: if rate-limited by your primary provider, Lucid instantly falls back to the next available provider automatically seamlessly during the stream.
-- 👻 **Ghost & Stealth Operations**
-  - **Click-Through Mode:** Utilizing Windows `WS_EX_TRANSPARENT`, the app becomes completely unclickable, letting you work *through* your AI assistant while keeping context on screen.
-  - **Screen-Capture Stealth:** Advanced `SetWindowDisplayAffinity` integration makes the entire application invisible to OBS, Zoom, Teams, and Discord screen capturing.
-- 📸 **Native Vision capabilities**
-  - Hit a global hotkey to instantly draw a selection box over any UI element on your screen. The `SnipOverlay` securely funnels regions or full-screen captures directly to Vision-enabled models (Gemini/OpenRouter).
-- 🎨 **Premium Aesthetic Sandboxing**
-  - Custom fluid animations with 5 native palettes integrated at the CSS variable level: **Dark**, **Light**, **Dracula**, **Nord**, and **Gruvbox**. 
-  - Dynamic opacity sliders bound to the native OS-level window layering.
-- 🗄️ **The "Vault" Context Storage**
-  - A local, persistent storage drive sitting side-by-side with your Chat interface. Seamlessly store complex algorithms, comprehensive resumes, or sensitive Prompts securely in indexed formats to access anytime you need context.
+- 🧠 **Reliable Multi-Model Routing**
+  - Natively supports Groq (Llama 3), Gemini 1.5 Pro, DeepSeek V3, OpenRouter, and local Ollama integrations.
+  - Implements an "Intelligent Failover" system: if a provider is unavailable, Lucid automatically switches to the next available model to ensure uninterrupted meeting support.
+- 🖼️ **Non-Intrusive Focus HUD**
+  - **Overlay Mode:** Provides a clean, heads-up display for meeting notes that stays on top without obstructing your workflow.
+  - **Privacy First:** Advanced `SetWindowDisplayAffinity` integration ensures that sensitive internal notes and private meeting data are excluded from screen recordings and screen shares (Zoom, Teams, etc.).
+- 📸 **Smart Snipping Tool**
+  - Instantly capture technical diagrams, whiteboard sketches, or presentation slides during meetings. 
+  - Integrated Vision models (Gemini/OpenRouter) analyze captures to provide immediate technical context or action items.
+- 🎨 **Executive Aesthetic**
+  - Clean, professional UI with 5 curated themes: **Dark**, **Light**, **Slate**, **Nord**, and **Professional**.
+  - Customizable transparency for a tailored workspace experience.
+- 🗄️ **The Knowledge Base**
+  - A local, secure repository for your meeting archives and technical documentation. 
+  - Store complex requirements, project resumes, or meeting prompts securely for instant access during call-to-actions.
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 - [Node.js](https://nodejs.org/en/)
 - [Rust Toolchain](https://rustup.rs/) (cargo, rustc)
-- Windows 10/11 (Stealth/Ghost mode APIs require native Windows bindings)
+- Windows 10/11 (Advanced window features require native Windows APIs)
 
 ### Installation
 
@@ -59,18 +61,18 @@ Lucid is a next-generation desktop application that seamlessly merges best-in-cl
    ```
 
 ### Building for Production
-To compile your standalone, heavily optimized `.exe` binary:
+To compile your standalone, production-ready application:
 ```bash
 npm run tauri build
 ```
-*(Your final execution binary will be generated under `src-tauri/target/release/AudioSessionManager.exe`)*
+*(Your final execution binary will be generated under `src-tauri/target/release/Lucid.exe`)*
 
 ## ⚙️ App Architecture
 
-1. **Rust Backend (`src-tauri/src/`)**: Harnesses OS-level interactions bypassing restrictive frontend capabilities. Employs `win32` APIs for deep window anchoring, click-through, transparency, and background threaded API invocations.
-2. **React Frontend (`src/`)**: Unmounted view routing prevents state-loss across your Chat, Vault, and Settings sessions. Employs custom unified renderers (handling fenced code blocks, language syntax, etc.).
+1. **Rust Backend (`src-tauri/src/`)**: Leverages high-performance OS-level interactions. Uses `win32` APIs for native window layering, transparency, and background threaded API invocations.
+2. **React Frontend (`src/`)**: Clean, reactive interface with unmounted view routing to preserve state across Chat, Knowledge Base, and Settings.
 
 ---
 <div align="center">
-  <p>Designed and built for peak AI-Assisted workflow efficiency.</p>
+  <p>Designed for professional workflows and peak organizational efficiency.</p>
 </div>
