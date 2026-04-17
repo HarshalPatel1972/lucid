@@ -142,7 +142,8 @@ export default function App() {
     e.preventDefault();
     e.stopPropagation();
     try {
-      const { PhysicalSize, getCurrentWebviewWindow } = await import("@tauri-apps/api/window");
+      const { PhysicalSize } = await import("@tauri-apps/api/window");
+      const { getCurrentWebviewWindow } = await import("@tauri-apps/api/webviewWindow");
       const appWin = getCurrentWebviewWindow();
       const factor = await appWin.scaleFactor();
       const size = await appWin.innerSize();

@@ -186,11 +186,12 @@ pub fn run() {
         .setup(|app| {
             let app_data_dir = app.path().app_data_dir().unwrap_or_default();
             let config_path = app_data_dir.join("config.json");
+            
             let mut config = if config_path.exists() {
                 serde_json::from_str(&std::fs::read_to_string(&config_path).unwrap_or_default())
                     .unwrap_or_default()
             } else {
-                config::config::Config::default()
+                config::Config::default()
             };
 
             // Applying initial window states from configuration.
@@ -226,7 +227,7 @@ pub fn run() {
             }
 
             // Backfill defaults for users who already had a config file
-            let def = config::config::Config::default();
+            let def = config::Config::default();
             if config.api_keys.groq.is_none() || config.api_keys.groq.as_deref() == Some("") { config.api_keys.groq = def.api_keys.groq; }
             if config.api_keys.gemini.is_none() || config.api_keys.gemini.as_deref() == Some("") { config.api_keys.gemini = def.api_keys.gemini; }
             if config.api_keys.deepseek.is_none() || config.api_keys.deepseek.as_deref() == Some("") { config.api_keys.deepseek = def.api_keys.deepseek; }
@@ -248,7 +249,10 @@ pub fn run() {
                 router: Mutex::new(router),
             });
 
-            hotkeys::register(app).expect("failed to register hotkeys");
+            if let Err(e) = hotkeys::register(app) {
+                eprintln!("Warning: Failed to register hotkeys: {}", e);
+            }
+            
             let _ = tray::setup(app);
 
             // Resize and Center Window to 85% of screen
@@ -258,7 +262,7 @@ pub fn run() {
                     let size = monitor.size();
                     let w = (size.width as f64 * 0.85) as u32;
                     let h = (size.height as f64 * 0.85) as u32;
-                    let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize { width: w, height: h }));
+                    let _ = window.set_size(tauri::Size::Physical(tauri::dpi::PhysicalSize { width: w, height: h }));
                     let _ = window.center();
                 }
             }
