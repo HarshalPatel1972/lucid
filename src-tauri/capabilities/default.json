@@ -6,9 +6,9 @@
   "permissions": [
     "core:default",
     "opener:default",
-    "global-shortcut:allow-all",
-    "core:window:allow-all",
-    "core:webview:allow-all",
-    "core:tray:default"
+    "global-shortcut:default",
+    "global-shortcut:allow-register",
+    "global-shortcut:allow-register-all",
+    "global-shortcut:allow-unregister-all"
   ]
 }

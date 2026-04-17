@@ -255,6 +255,7 @@ pub fn run() {
             
             let _ = tray::setup(app);
 
+            /* 
             // Resize and Center Window to 85% of screen
             let app_handle = app.handle();
             if let Some(window) = app_handle.get_webview_window("main") {
@@ -266,6 +267,7 @@ pub fn run() {
                     let _ = window.center();
                 }
             }
+            */
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
